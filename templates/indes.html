@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Agent-01</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <div class="max-w-5xl mx-auto p-10">
+        <div class="flex justify-between items-center border-b border-gray-800 pb-8 mb-10">
+            <div>
+                <h1 class="text-4xl font-black text-blue-500 tracking-tighter">AGENT-01</h1>
+                <p class="text-gray-400 text-sm mt-1">Interface de contrôle centralisée</p>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                <span class="text-green-500 font-bold tracking-widest text-sm uppercase">Système Online</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl">
+                <h2 class="text-blue-400 font-bold mb-6 uppercase text-sm tracking-widest">Commandes Directes</h2>
+                <div class="space-y-4">
+                    <button class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95">Scanner AliExpress</button>
+                    <button class="w-full bg-gray-700 hover:bg-gray-600 py-4 rounded-2xl font-bold transition-all text-gray-300 active:scale-95">Mise à jour Boutique</button>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-black rounded-3xl p-8 border border-gray-800 shadow-inner">
+                <div class="flex items-center space-x-2 mb-4">
+                    <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span class="ml-4 text-gray-600 text-xs font-mono italic">terminal_session_01</span>
+                </div>
+                <div class="font-mono text-sm space-y-3">
+                    <p class="text-blue-400">[SYSTEM] Initialisation du dashboard...</p>
+                    <p class="text-green-500">[OK] Connexion GitHub établie.</p>
+                    <p class="text-gray-500">> Prêt pour les instructions de la Partie 1.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
