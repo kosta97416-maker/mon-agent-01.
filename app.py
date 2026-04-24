@@ -1,9 +1,14 @@
-from flask import Flask
-app = Flask(__name__)
+from flask import Flask, render_template
+import os
+
+# Le template_folder='templates' est l'instruction magique
+app = Flask(__name__, template_folder='templates')
 
 @app.route('/')
-def hello():
-    return "🤖 Mon Agent est enfin vivant !"
+def home():
+    # C'est cette ligne qui va chercher ton beau design
+    return render_template('index.html')
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
