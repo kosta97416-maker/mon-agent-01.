@@ -1,9 +1,9 @@
+from flask import Flask
 app = Flask(__name__)
 
 @app.route('/')
-def home():
-    return "L'agent est activé et prêt à recevoir tes ordres sur Android !"
+def hello():
+    return "🤖 Mon Agent est enfin vivant !"
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=10000)
