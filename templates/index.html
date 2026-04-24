@@ -2,45 +2,104 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Agent-01</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NÉO - Système de Pilotage Éboueur</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Fira Code', monospace; scroll-behavior: smooth; }
+        .terminal-scroll::-webkit-scrollbar { width: 4px; }
+        .terminal-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    </style>
 </head>
-<body class="bg-gray-900 text-white font-sans">
-    <div class="max-w-5xl mx-auto p-10">
-        <div class="flex justify-between items-center border-b border-gray-800 pb-8 mb-10">
-            <div>
-                <h1 class="text-4xl font-black text-blue-500 tracking-tighter">AGENT-01</h1>
-                <p class="text-gray-400 text-sm mt-1">Interface de contrôle centralisée</p>
+<body class="bg-slate-950 text-slate-200 overflow-hidden">
+
+    <div class="flex h-screen">
+        <div class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col">
+            <div class="p-6 border-b border-slate-800">
+                <h1 class="text-2xl font-black text-blue-500 tracking-tighter">NÉO <span class="text-xs font-light text-slate-500">v2.1</span></h1>
+                <p class="text-[10px] text-slate-500 uppercase mt-1">Pilote de Projet Éboueur</p>
             </div>
-            <div class="flex items-center space-x-3">
-                <span class="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
-                <span class="text-green-500 font-bold tracking-widest text-sm uppercase">Système Online</span>
+            
+            <div class="flex-1 p-4 space-y-2">
+                <p class="text-[10px] text-slate-600 font-bold uppercase px-2 mb-4">Unités Actives</p>
+                <div class="flex items-center space-x-3 bg-slate-800/50 p-3 rounded-xl border border-blue-500/30">
+                    <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span class="text-sm font-bold">NÉO (Core)</span>
+                </div>
+                <div class="flex items-center space-x-3 p-3 rounded-xl opacity-40">
+                    <div class="w-2 h-2 bg-slate-600 rounded-full"></div>
+                    <span class="text-sm">Agent-Sourcing (Veille)</span>
+                </div>
+                <div class="flex items-center space-x-3 p-3 rounded-xl opacity-40">
+                    <div class="w-2 h-2 bg-slate-600 rounded-full"></div>
+                    <span class="text-sm">Agent-Finances (ROI)</span>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-950/50 text-[10px] text-slate-600 border-t border-slate-800">
+                LÉGALITÉ : CONFORME (RGPD/APIs)<br>
+                STABILISATION : ACTIVE
             </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="bg-gray-800 rounded-3xl p-8 border border-gray-700 shadow-2xl">
-                <h2 class="text-blue-400 font-bold mb-6 uppercase text-sm tracking-widest">Commandes Directes</h2>
-                <div class="space-y-4">
-                    <button class="w-full bg-blue-600 hover:bg-blue-500 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95">Scanner AliExpress</button>
-                    <button class="w-full bg-gray-700 hover:bg-gray-600 py-4 rounded-2xl font-bold transition-all text-gray-300 active:scale-95">Mise à jour Boutique</button>
+        <div class="flex-1 flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
+            
+            <header class="h-20 border-b border-slate-800/50 flex items-center px-8 space-x-8">
+                <div>
+                    <p class="text-[9px] text-slate-500 uppercase">Statut Pilote</p>
+                    <p class="text-sm font-bold text-blue-400">EN PATROUILLE</p>
+                </div>
+                <div class="h-8 w-px bg-slate-800"></div>
+                <div>
+                    <p class="text-[9px] text-slate-500 uppercase">Opportunités ROI</p>
+                    <p class="text-sm font-bold text-green-400">RECHERCHE...</p>
+                </div>
+            </header>
+
+            <div id="chat-box" class="flex-1 overflow-y-auto p-8 space-y-6 terminal-scroll">
+                <div class="flex flex-col space-y-2 max-w-3xl">
+                    <span class="text-[10px] text-blue-500 font-bold">[NÉO_SYSTEM]</span>
+                    <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl rounded-tl-none shadow-xl">
+                        <p class="text-sm leading-relaxed">Système initialisé. Je suis **NÉO**, ton pilote de projet. <br>Je suis prêt à nettoyer le marché et stabiliser tes futurs revenus. J'attends ta première directive.</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="lg:col-span-2 bg-black rounded-3xl p-8 border border-gray-800 shadow-inner">
-                <div class="flex items-center space-x-2 mb-4">
-                    <div class="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div class="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span class="ml-4 text-gray-600 text-xs font-mono italic">terminal_session_01</span>
+            <div id="zone-directive" class="mx-8 mb-4 p-4 bg-blue-600/10 border border-blue-500/50 rounded-2xl flex items-center justify-between hidden">
+                <div class="flex items-center space-x-4">
+                    <div class="bg-blue-500 p-2 rounded-lg animate-bounce">⚖️</div>
+                    <p class="text-xs text-blue-100">NÉO a identifié une opportunité légale. **Validation requise pour stabiliser.**</p>
                 </div>
-                <div class="font-mono text-sm space-y-3">
-                    <p class="text-blue-400">[SYSTEM] Initialisation du dashboard...</p>
-                    <p class="text-green-500">[OK] Connexion GitHub établie.</p>
-                    <p class="text-gray-500">> Prêt pour les instructions de la Partie 1.</p>
+                <button onclick="validerAction()" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-xs font-bold transition-all">VALIDER L'ACTION</button>
+            </div>
+
+            <div class="p-8 pt-0">
+                <div class="max-w-4xl mx-auto relative group">
+                    <input id="user-input" type="text" 
+                           class="w-full bg-slate-900 border border-slate-800 rounded-2xl py-5 px-8 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-2xl" 
+                           placeholder="Donne une directive à NÉO (ex: 'Lance le scan éboueur')...">
+                    <button onclick="envoyerOrdre()" 
+                            class="absolute right-3 top-3 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg">
+                        ENVVOYER
+                    </button>
                 </div>
             </div>
         </div>
     </div>
-</body>
-</html>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+
+        function appendMsg(role, text, isAi = false) {
+            const div = document.createElement('div');
+            div.className = "flex flex-col space-y-2 " + (isAi ? "max-w-3xl" : "max-w-xl ml-auto items-end");
+            
+            const label = isAi ? "[NÉO]" : "[COMMANDANT]";
+            const color = isAi ? "text-blue-500" : "text-slate-500";
+            const bg = isAi ? "bg-slate-900/80 border-slate-800 rounded-tl-none" : "bg-blue-600 border-blue-500 rounded-tr-none text-white";
+
+            div.innerHTML = `
+                <span class="text-[10px] ${color} font-bold">${label}</span>
+                <div class="${bg} border p-4 rounded-2xl shadow-xl">
+                    <p class="
