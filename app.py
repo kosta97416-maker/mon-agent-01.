@@ -4,9 +4,10 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Config IA
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
+# Config IA avec sécurité
+api_key = os.environ.get("GEMINI_API_KEY")
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 @app.route('/')
 def index():
@@ -14,16 +15,16 @@ def index():
 
 @app.route('/api/chat')
 def chat():
-    # C'est cette ligne que ton site appelle quand tu cliques sur "Exécuter"
     msg = request.args.get('msg')
     if not msg:
-        return jsonify({"response": "Signal vide."})
+        return jsonify({"response": "Je t'écoute, Commandant. Pose-moi une question."})
+    
     try:
+        # Appel direct à l'IA
         response = model.generate_content(msg)
         return jsonify({"response": response.text})
     except Exception as e:
-        # Si ça ne marche pas, NÉO va nous écrire l'erreur précise
-        return jsonify({"response": f"Erreur système : {str(e)}"})
+        return jsonify({"response": f"Erreur de connexion : {str(e)}"})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
