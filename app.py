@@ -10,14 +10,14 @@ model = genai.GenerativeModel("gemini-2.0-flash")
 def home():
     return render_template("index.html")
 
-@app.route("/chat", methods=["POST"])
+@app.route("/api/chat", methods=["GET"])  # ← /api/chat en GET
 def chat():
     try:
-        msg = request.json.get("message")
+        msg = request.args.get("msg")  # ← args et non json
         response = model.generate_content(msg)
-        return jsonify({"reply": response.text})
+        return jsonify({"response": response.text})  # ← "response" et non "reply"
     except Exception as e:
-        return jsonify({"reply": f"Erreur : {str(e)}"})
+        return jsonify({"response": f"Erreur : {str(e)}"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
