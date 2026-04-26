@@ -2,12 +2,12 @@
 <html>
 <body style="background:black;color:white;font-family:sans-serif;padding:20px">
 <h1>TEST GROQ</h1>
-<button onclick="test()" style="padding:20px;font-size:20px">CLIQUE ICI</button>
-<pre id="result" style="margin-top:20px;padding:10px;background:#222"></pre>
+<button onclick="test()" style="padding:20px;font-size:20px;cursor:pointer">CLIQUE ICI</button>
+<pre id="result" style="margin-top:20px;padding:10px;background:#222;white-space:pre-wrap"></pre>
 <script>
 async function test() {
   const r = document.getElementById('result');
-  r.textContent = "Envoi...";
+  r.textContent = "Envoi en cours...";
   try {
     const res = await fetch('/chat', {
       method: 'POST',
@@ -15,7 +15,7 @@ async function test() {
       body: JSON.stringify({message:'salut'})
     });
     const data = await res.json();
-    r.textContent = "STATUS: " + res.status + "\nRÉPONSE: " + JSON.stringify(data, null, 2);
+    r.textContent = "STATUS: " + res.status + "\n\nRÉPONSE:\n" + JSON.stringify(data, null, 2);
   } catch(e) {
     r.textContent = "ERREUR JS: " + e.message;
   }
