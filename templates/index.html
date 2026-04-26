@@ -62,4 +62,244 @@
                 </label>
             </div>
             <div class="text-right">
-                <p class="text-[9px] text-sla
+                <p class="text-[9px] text-slate-500 uppercase leading-none">Réseau</p>
+                <p class="text-xs font-bold text-green-400 mono">CHIFFRÉ_DISCRET</p>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex flex-1 overflow-hidden">
+        <aside class="w-72 border-r border-white/5 p-6 space-y-8 glass hidden lg:block">
+            <div>
+                <p class="text-[10px] text-blue-500 font-bold uppercase mb-4 tracking-widest">Empire & Juridictions</p>
+                <ul class="space-y-3 text-sm">
+                    <li class="flex items-center justify-between text-slate-400"><span>Wyoming LLC</span> <span class="text-[10px] mono">IDLE</span></li>
+                    <li class="flex items-center justify-between text-blue-400"><span>Lithuania Fintech</span> <span class="text-[10px] animate-pulse mono">READY</span></li>
+                </ul>
+            </div>
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-blue-600/10 to-transparent border border-blue-500/20 glow-blue">
+                <p class="text-[10px] text-slate-400 uppercase mb-1 font-bold italic">Wallet Éboueur</p>
+                <p class="text-xl font-bold mono text-white" id="wallet-balance">$0.00</p>
+                <p class="text-[9px] text-blue-500 mt-2 font-bold italic underline cursor-pointer">DÉPOSER DES FRAIS DE GAZ</p>
+            </div>
+            <div class="p-4 rounded-2xl bg-gradient-to-br from-green-600/10 to-transparent border border-green-500/20">
+                <p class="text-[10px] text-slate-400 uppercase mb-1 font-bold italic">Mémoire active</p>
+                <p class="text-xs text-green-400 mono">✓ NÉO se souvient</p>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col relative">
+            <div id="chat-box" class="flex-1 overflow-y-auto p-10 space-y-6 terminal-scroll">
+                <div class="flex flex-col space-y-2 max-w-3xl">
+                    <span class="text-[10px] mono text-blue-500 font-bold">NÉO_CORE</span>
+                    <div class="p-5 rounded-2xl rounded-tl-none glass border-l-2 border-l-blue-500">
+                        <p class="text-sm leading-relaxed italic">Commandant, je suis à votre écoute. J'ai maintenant une mémoire — je me souviendrai de notre conversation. Donnez vos ordres ou demandez-moi du code.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-8">
+                <div class="max-w-4xl mx-auto">
+                    <div class="relative group">
+                        <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-10 group-focus-within:opacity-30 transition duration-1000"></div>
+                        <div class="relative flex items-center glass rounded-2xl p-2">
+                            <button id="mic-btn" onclick="toggleMic()" class="p-3 hover:bg-white/5 rounded-xl transition-all group">
+                                <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-500 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                            </button>
+                            <input id="user-input" type="text" 
+                                   class="flex-1 bg-transparent border-none py-4 px-4 text-white focus:outline-none placeholder:text-slate-600 text-sm" 
+                                   placeholder="Parlez ou tapez un ordre...">
+                            <button id="send-btn" onclick="envoyerOrdre()" 
+                                    class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-900/20 uppercase tracking-tighter italic">
+                                Exécuter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const aiSwitch = document.getElementById('ai-switch');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true
+        });
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'fr-FR';
+            recognition.continuous = false;
+            recognition.onresult = (event) => {
+                userInput.value = event.results[0][0].transcript;
+                stopMicStyle();
+                envoyerOrdre();
+            };
+            recognition.onend = () => stopMicStyle();
+            recognition.onerror = () => stopMicStyle();
+        }
+
+        function toggleMic() {
+            if (!recognition) { alert("Micro non supporté."); return; }
+            if (!isListening) { recognition.start(); startMicStyle(); }
+            else { recognition.stop(); }
+        }
+
+        function startMicStyle() {
+            isListening = true;
+            const icon = document.getElementById('mic-icon');
+            icon.classList.remove('text-slate-500');
+            icon.classList.add('text-red-500', 'animate-pulse');
+            userInput.placeholder = "NÉO vous écoute...";
+        }
+
+        function stopMicStyle() {
+            isListening = false;
+            const icon = document.getElementById('mic-icon');
+            icon.classList.remove('text-red-500', 'animate-pulse');
+            icon.classList.add('text-slate-500');
+            userInput.placeholder = "Parlez ou tapez un ordre...";
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function appendUserMsg(text) {
+            const div = document.createElement('div');
+            div.className = "flex flex-col space-y-2 max-w-xl ml-auto items-end text-right";
+            div.innerHTML = `
+                <span class="text-[10px] mono text-slate-500 font-bold">COMMANDANT</span>
+                <div class="p-5 rounded-2xl glass border-r-2 border-r-slate-600 rounded-tr-none">
+                    <p class="text-sm leading-relaxed">${escapeHtml(text)}</p>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendNeoMsg(text) {
+            const div = document.createElement('div');
+            div.className = "flex flex-col space-y-2 max-w-3xl";
+            const htmlContent = marked.parse(text);
+            div.innerHTML = `
+                <span class="text-[10px] mono text-blue-500 font-bold">NÉO_PILOT</span>
+                <div class="p-5 rounded-2xl glass border-l-2 border-l-blue-500 rounded-tl-none">
+                    <div class="text-sm leading-relaxed neo-reply">${htmlContent}</div>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            
+            div.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                const pre = block.parentElement;
+                const btn = document.createElement('button');
+                btn.className = 'copy-btn';
+                btn.textContent = 'Copier';
+                btn.onclick = () => {
+                    navigator.clipboard.writeText(block.textContent);
+                    btn.textContent = 'Copié ✓';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = 'Copier';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                };
+                pre.appendChild(btn);
+            });
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendTyping() {
+            const div = document.createElement('div');
+            div.className = "flex flex-col space-y-2 max-w-2xl";
+            div.id = "typing-indicator";
+            div.innerHTML = `
+                <span class="text-[10px] mono text-blue-500 font-bold">NÉO_PILOT</span>
+                <div class="p-5 rounded-2xl glass border-l-2 border-l-blue-500 rounded-tl-none">
+                    <p class="text-sm leading-relaxed typing-dots"><span>●</span> <span>●</span> <span>●</span></p>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function removeTyping() {
+            const t = document.getElementById('typing-indicator');
+            if (t) t.remove();
+        }
+
+        async function envoyerOrdre() {
+            const msg = userInput.value.trim();
+            if (!msg) return;
+
+            appendUserMsg(msg);
+            userInput.value = "";
+            sendBtn.disabled = true;
+
+            if (!aiSwitch.checked) {
+                appendNeoMsg("Système en veille (IA Switch OFF).");
+                sendBtn.disabled = false;
+                return;
+            }
+
+            appendTyping();
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                removeTyping();
+                appendNeoMsg(data.reply);
+            } catch (e) {
+                removeTyping();
+                appendNeoMsg("**Erreur :** " + e.message);
+            } finally {
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        async function resetConversation() {
+            if (!confirm("Effacer la mémoire de NÉO et recommencer une nouvelle conversation ?")) return;
+            try {
+                await fetch('/reset', { method: 'POST' });
+                chatBox.innerHTML = `
+                    <div class="flex flex-col space-y-2 max-w-3xl">
+                        <span class="text-[10px] mono text-blue-500 font-bold">NÉO_CORE</span>
+                        <div class="p-5 rounded-2xl rounded-tl-none glass border-l-2 border-l-blue-500">
+                            <p class="text-sm leading-relaxed italic">Mémoire effacée, Commandant. Nouvelle conversation lancée.</p>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                alert("Erreur : " + e.message);
+            }
+        }
+
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') envoyerOrdre(); });
+    </script>
+</body>
+</html>
