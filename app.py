@@ -28,6 +28,10 @@ async def chat(msg: Message):
     except Exception as e:
         return {"reply": f"Erreur : {str(e)}"}
 
+@app.get("/test", response_class=HTMLResponse)
+async def test_page():
+    return open("test.html").read()
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return open("templates/index.html").read()
