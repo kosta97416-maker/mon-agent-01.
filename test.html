@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:white;font-family:sans-serif;padding:20px">
+<h1>TEST GROQ</h1>
+<button onclick="test()" style="padding:20px;font-size:20px">CLIQUE ICI</button>
+<pre id="result" style="margin-top:20px;padding:10px;background:#222"></pre>
+<script>
+async function test() {
+  const r = document.getElementById('result');
+  r.textContent = "Envoi...";
+  try {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({message:'salut'})
+    });
+    const data = await res.json();
+    r.textContent = "STATUS: " + res.status + "\nRÉPONSE: " + JSON.stringify(data, null, 2);
+  } catch(e) {
+    r.textContent = "ERREUR JS: " + e.message;
+  }
+}
+</script>
+</body>
+</html>
