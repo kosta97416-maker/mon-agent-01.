@@ -1,24 +1,33 @@
-from flask import Flask, render_template, request, jsonify
-import google.generativeai as genai
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from groq import Groq
 import os
 
-app = Flask(__name__)
-genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-model = genai.GenerativeModel("gemini-2.0-flash")
+app = FastAPI()
 
-@app.route("/")
-def home():
-    return render_template("index.html")
+# Client Groq (la clé GROQ_API_KEY vient des variables d'environnement Render)
+client = Groq(api_key=os.environ["GROQ_API_KEY"])
 
-@app.route("/api/chat", methods=["GET"])  # ← /api/chat en GET
-def chat():
+# Modèle Groq (rapide et puissant)
+MODEL = "llama-3.3-70b-versatile"
+
+class Message(BaseModel):
+    message: str
+
+@app.post("/chat")
+async def chat(msg: Message):
     try:
-        msg = request.args.get("msg")  # ← args et non json
-        response = model.generate_content(msg)
-        return jsonify({"response": response.text})  # ← "response" et non "reply"
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "user", "content": msg.message}
+            ],
+        )
+        return {"reply": response.choices[0].message.content}
     except Exception as e:
-        return jsonify({"response": f"Erreur : {str(e)}"})
+        return {"reply": f"Erreur : {str(e)}"}
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return open("templates/index.html").read()
