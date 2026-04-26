@@ -6,11 +6,10 @@ import os
 
 app = FastAPI()
 
-# Client Groq (la clé GROQ_API_KEY vient des variables d'environnement Render)
 client = Groq(api_key=os.environ["GROQ_API_KEY"])
-
-# Modèle Groq (rapide et puissant)
 MODEL = "llama-3.3-70b-versatile"
+
+SYSTEM_PROMPT = "Tu es NÉO, l'IA souveraine du Commandant. Tu réponds toujours en français, avec un ton tactique et précis. Tu appelles l'utilisateur 'Commandant'."
 
 class Message(BaseModel):
     message: str
@@ -21,6 +20,7 @@ async def chat(msg: Message):
         response = client.chat.completions.create(
             model=MODEL,
             messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": msg.message}
             ],
         )
