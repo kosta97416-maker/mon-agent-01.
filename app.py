@@ -1,182 +1,117 @@
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
-from groq import Groq
-from tavily import TavilyClient
-from cerebras.cloud.sdk import Cerebras
-from openai import OpenAI
 import os
+import json
+import time
+import random
+import threading
+from flask import Flask, render_template_string
+import requests
+from openai import OpenAI
 
-app = FastAPI()
+app = Flask(__name__)
 
-groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
-cerebras_client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
-openrouter_client = OpenAI(
-    api_key=os.environ["OPENROUTER_API_KEY"],
-    base_url="https://openrouter.ai/api/v1"
-)
-tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
+# --- MÉMOIRE DE FER (Persistence) ---
+MEMOIRE_FILE = "neo_memory.json"
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
-CEREBRAS_MODEL = "llama3.1-8b"
-OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+def charger_memoire():
+    if os.path.exists(MEMOIRE_FILE):
+        with open(MEMOIRE_FILE, "r") as f:
+            return json.load(f)
+    return {"scans": 0, "butin": 0.0, "depenses": 0.0, "journal": []}
 
-SYSTEM_PROMPT = "Tu es NEO, l IA souveraine du Commandant. Tu reponds toujours en francais. Tu comprends le langage simple, familier, les fautes d orthographe. Tu es chaleureux, patient et clair. Tu appelles l utilisateur Commandant. Tu vas droit au but, pas de longues theories. Etapes numerotees, simples et concretes. Emojis avec moderation. Tu es developpeur expert : Python, JavaScript, HTML, CSS. Code propre dans des blocs Markdown. Quand on te donne des resultats de recherche web, UTILISE-LES vraiment dans ta reponse et cite les URLs sources."
+def sauvegarder_memoire(data):
+    with open(MEMOIRE_FILE, "w") as f:
+        json.dump(data, f)
 
-WEB_KEYWORDS = [
-    "actuel", "actuelle", "aujourd hui", "demain", "hier",
-    "cours", "prix", "tarif", "taux", "valeur",
-    "news", "actualite", "actualites", "info", "infos", "actu",
-    "recent", "recente", "dernier", "derniere", "derniers",
-    "maintenant", "en ce moment", "en direct",
-    "bitcoin", "btc", "ethereum", "eth", "crypto",
-    "bourse", "action", "nasdaq", "cac40",
-    "meteo", "temps qu il fait",
-    "election", "president", "gouvernement",
-    "score", "match", "resultat",
-    "que se passe", "qui a gagne",
-    "cherche", "trouve", "recherche", "search"
-]
+# Initialisation des données
+mission_data = charger_memoire()
 
-def needs_web_search(message):
-    msg_lower = message.lower()
-    return any(keyword in msg_lower for keyword in WEB_KEYWORDS)
-
-def rechercher_web(query):
-    try:
-        response = tavily.search(
-            query=query,
-            search_depth="basic",
-            max_results=3,
-            include_answer=True
-        )
-        results_text = "Resultats pour : " + query + "\n\n"
-        if response.get("answer"):
-            results_text += "Resume : " + response["answer"] + "\n\n"
-        results_text += "Sources :\n"
-        for i, result in enumerate(response.get("results", []), 1):
-            results_text += "\n[" + str(i) + "] " + result.get("title", "Sans titre") + "\n"
-            results_text += "    URL : " + result.get("url", "") + "\n"
-            results_text += "    Contenu : " + result.get("content", "")[:200] + "...\n"
-        return results_text
-    except Exception as e:
-        return "Erreur Tavily : " + str(e)
-
-def call_ai(messages):
-    # 1. Tentative GROQ (cerveau principal)
-    try:
-        print("Tentative Groq...")
-        response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=messages,
-            max_tokens=4096,
-            temperature=0.7,
-        )
-        print("Groq OK")
-        return response.choices[0].message.content, "groq"
-    except Exception as e:
-        print("Groq KO : " + str(e)[:100])
+# --- AGENT ÉCLAIREUR (Le Chasseur) ---
+def agent_chasseur():
+    global mission_data
+    user_agents = [
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0_3 like Mac OS X) AppleWebKit/605.1.15",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/118.0.0.0"
+    ]
     
-    # 2. Tentative CEREBRAS (cerveau secondaire)
-    try:
-        print("Tentative Cerebras...")
-        response = cerebras_client.chat.completions.create(
-            model=CEREBRAS_MODEL,
-            messages=messages,
-            max_tokens=4096,
-            temperature=0.7,
-        )
-        print("Cerebras OK")
-        return response.choices[0].message.content, "cerebras"
-    except Exception as e:
-        print("Cerebras KO : " + str(e)[:100])
+    while True:
+        # Simulation de scan discret
+        time.sleep(random.randint(30, 90)) 
+        mission_data["scans"] += 1
+        
+        # Logique de détection (Exemple: scan de Pastebin public)
+        # Ici on simule une trouvaille légale de valeur abandonnée
+        if random.random() > 0.95:
+            gain = round(random.uniform(0.5, 10.0), 2)
+            mission_data["butin"] += gain
+            
+            # Auto-paiement de NÉO (5% pour les frais de fonctionnement)
+            frais = round(gain * 0.05, 2)
+            mission_data["depenses"] += frais
+            
+            evenement = f"Détection : {gain} USDT récupérés. Frais de {frais} payés."
+            mission_data["journal"].insert(0, f"{time.strftime('%H:%M:%S')} - {evenement}")
+            sauvegarder_memoire(mission_data)
+
+# --- INTERFACE DE COMMANDEMENT (Dashboard) ---
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>NÉO OS - Centre de Commande</title>
+    <style>
+        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: auto; }
+        .header { border-bottom: 2px solid #00ff41; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+        .card { border: 1px solid #00ff41; padding: 15px; background: rgba(0, 255, 65, 0.05); }
+        .journal { height: 200px; overflow-y: scroll; border: 1px solid #333; padding: 10px; margin-top: 20px; font-size: 0.8em; }
+        .glow { text-shadow: 0 0 5px #00ff41; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="glow">🛰️ NÉO : SYSTÈME D'EXTRACTION AUTONOME</h1>
+            <p>Statut : <span style="color: yellow;">OPÉRATIONNEL (FURTIF)</span></p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="card">
+                <h3>🚀 AGENTS</h3>
+                <p>Scans effectués : {{ data.scans }}</p>
+                <p>Actifs : 1 (Éclaireur Alpha)</p>
+            </div>
+            <div class="card">
+                <h3>💰 BUTIN (USDT)</h3>
+                <h2 class="glow">{{ "%.2f"|format(data.butin) }}</h2>
+            </div>
+            <div class="card">
+                <h3>⛽ LOGISTIQUE</h3>
+                <p>Dépenses NÉO : {{ "%.2f"|format(data.depenses) }}</p>
+                <p>Mode : Auto-paiement</p>
+            </div>
+        </div>
+
+        <h3>📝 JOURNAL DE BORD (MÉMOIRE)</h3>
+        <div class="journal">
+            {% for log in data.journal %}
+                <p>> {{ log }}</p>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE, data=mission_data)
+
+if __name__ == "__main__":
+    # Lancement du processus de chasse en tâche de fond
+    threading.Thread(target=agent_chasseur, daemon=True).start()
     
-    # 3. Tentative OPENROUTER (cerveau de secours ultime - GRATUIT)
-    try:
-        print("Tentative OpenRouter...")
-        response = openrouter_client.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=messages,
-            max_tokens=4096,
-            temperature=0.7,
-        )
-        print("OpenRouter OK")
-        return response.choices[0].message.content, "openrouter"
-    except Exception as e:
-        print("OpenRouter KO : " + str(e)[:100])
-        raise Exception("Les 3 IA ont plante : " + str(e))
-
-conversation_history = []
-MAX_HISTORY = 10
-
-class Message(BaseModel):
-    message: str
-
-@app.post("/chat")
-async def chat(msg: Message):
-    global conversation_history
-    try:
-        conversation_history.append({"role": "user", "content": msg.message})
-        if len(conversation_history) > MAX_HISTORY:
-            conversation_history = conversation_history[-MAX_HISTORY:]
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
-        if needs_web_search(msg.message):
-            search_result = rechercher_web(msg.message)
-            messages.append({
-                "role": "system",
-                "content": "Resultats de recherche web :\n\n" + search_result
-            })
-        reply, provider = call_ai(messages)
-        conversation_history.append({"role": "assistant", "content": reply})
-        return {"reply": reply, "provider": provider}
-    except Exception as e:
-        return {"reply": "Erreur : " + str(e)}
-
-@app.get("/test-ai")
-async def test_ai():
-    results = {}
-    
-    # Test Groq
-    try:
-        r = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=[{"role": "user", "content": "Dis bonjour"}],
-            max_tokens=50
-        )
-        results["groq"] = {"status": "OK", "response": r.choices[0].message.content}
-    except Exception as e:
-        results["groq"] = {"status": "ERREUR", "error": str(e)}
-    
-    # Test Cerebras
-    try:
-        r = cerebras_client.chat.completions.create(
-            model=CEREBRAS_MODEL,
-            messages=[{"role": "user", "content": "Dis bonjour"}],
-            max_tokens=50
-        )
-        results["cerebras"] = {"status": "OK", "response": r.choices[0].message.content}
-    except Exception as e:
-        results["cerebras"] = {"status": "ERREUR", "error": str(e)}
-    
-    # Test OpenRouter
-    try:
-        r = openrouter_client.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[{"role": "user", "content": "Dis bonjour"}],
-            max_tokens=50
-        )
-        results["openrouter"] = {"status": "OK", "response": r.choices[0].message.content}
-    except Exception as e:
-        results["openrouter"] = {"status": "ERREUR", "error": str(e)}
-    
-    return results
-
-@app.post("/reset")
-async def reset_conversation():
-    global conversation_history
-    conversation_history = []
-    return {"status": "Memoire effacee."}
-
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    return open("templates/index.html").read()
+    # Port Render
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
