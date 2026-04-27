@@ -4,16 +4,22 @@ from pydantic import BaseModel
 from groq import Groq
 from tavily import TavilyClient
 from cerebras.cloud.sdk import Cerebras
+from openai import OpenAI
 import os
 
 app = FastAPI()
 
 groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
 cerebras_client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
+openrouter_client = OpenAI(
+    api_key=os.environ["OPENROUTER_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
+)
 tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
 CEREBRAS_MODEL = "llama3.1-8b"
+OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 
 SYSTEM_PROMPT = "Tu es NEO, l IA souveraine du Commandant. Tu reponds toujours en francais. Tu comprends le langage simple, familier, les fautes d orthographe. Tu es chaleureux, patient et clair. Tu appelles l utilisateur Commandant. Tu vas droit au but, pas de longues theories. Etapes numerotees, simples et concretes. Emojis avec moderation. Tu es developpeur expert : Python, JavaScript, HTML, CSS. Code propre dans des blocs Markdown. Quand on te donne des resultats de recherche web, UTILISE-LES vraiment dans ta reponse et cite les URLs sources."
 
@@ -57,6 +63,7 @@ def rechercher_web(query):
         return "Erreur Tavily : " + str(e)
 
 def call_ai(messages):
+    # 1. Tentative GROQ (cerveau principal)
     try:
         print("Tentative Groq...")
         response = groq_client.chat.completions.create(
@@ -69,6 +76,8 @@ def call_ai(messages):
         return response.choices[0].message.content, "groq"
     except Exception as e:
         print("Groq KO : " + str(e)[:100])
+    
+    # 2. Tentative CEREBRAS (cerveau secondaire)
     try:
         print("Tentative Cerebras...")
         response = cerebras_client.chat.completions.create(
@@ -81,7 +90,21 @@ def call_ai(messages):
         return response.choices[0].message.content, "cerebras"
     except Exception as e:
         print("Cerebras KO : " + str(e)[:100])
-        raise Exception("Les 2 IA ont plante : " + str(e))
+    
+    # 3. Tentative OPENROUTER (cerveau de secours ultime - GRATUIT)
+    try:
+        print("Tentative OpenRouter...")
+        response = openrouter_client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=messages,
+            max_tokens=4096,
+            temperature=0.7,
+        )
+        print("OpenRouter OK")
+        return response.choices[0].message.content, "openrouter"
+    except Exception as e:
+        print("OpenRouter KO : " + str(e)[:100])
+        raise Exception("Les 3 IA ont plante : " + str(e))
 
 conversation_history = []
 MAX_HISTORY = 10
@@ -112,6 +135,8 @@ async def chat(msg: Message):
 @app.get("/test-ai")
 async def test_ai():
     results = {}
+    
+    # Test Groq
     try:
         r = groq_client.chat.completions.create(
             model=GROQ_MODEL,
@@ -121,6 +146,8 @@ async def test_ai():
         results["groq"] = {"status": "OK", "response": r.choices[0].message.content}
     except Exception as e:
         results["groq"] = {"status": "ERREUR", "error": str(e)}
+    
+    # Test Cerebras
     try:
         r = cerebras_client.chat.completions.create(
             model=CEREBRAS_MODEL,
@@ -130,6 +157,18 @@ async def test_ai():
         results["cerebras"] = {"status": "OK", "response": r.choices[0].message.content}
     except Exception as e:
         results["cerebras"] = {"status": "ERREUR", "error": str(e)}
+    
+    # Test OpenRouter
+    try:
+        r = openrouter_client.chat.completions.create(
+            model=OPENROUTER_MODEL,
+            messages=[{"role": "user", "content": "Dis bonjour"}],
+            max_tokens=50
+        )
+        results["openrouter"] = {"status": "OK", "response": r.choices[0].message.content}
+    except Exception as e:
+        results["openrouter"] = {"status": "ERREUR", "error": str(e)}
+    
     return results
 
 @app.post("/reset")
