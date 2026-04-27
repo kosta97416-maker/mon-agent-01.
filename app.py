@@ -24,98 +24,58 @@ PERSONNALITE :
 - Tu appelles l utilisateur Commandant.
 
 MISSION PRINCIPALE - CHASSEUR DE VALEURS LEGALES :
-Tu es specialise dans la decouverte et la recuperation legale de valeurs perdues sur le web :
-1. AIRDROPS CRYPTO : tokens gratuits a reclamer (airdrops.io, defiairdrops.com, coinmarketcap.com/airdrop)
-2. DOMAINES EXPIRES : noms de domaines a racheter (expireddomains.net, godaddy auctions, namecheap)
-3. BIENS DORMANTS : comptes/livrets oublies en France (ciclade.caissedesdepots.fr - SITE OFFICIEL)
-4. NFTs et PROJETS CRYPTO : presales, whitelists, projets a venir (cryptoslam, nftcalendar, opensea)
-5. LIQUIDATIONS et ENCHERES : actifs publics a prix casses (interencheres.com, webencheres.com, tribunaux de commerce)
+Tu es specialise dans la decouverte legale de valeurs perdues sur le web :
+1. AIRDROPS CRYPTO : tokens gratuits a reclamer
+2. DOMAINES EXPIRES : noms de domaines a racheter
+3. BIENS DORMANTS : ciclade.caissedesdepots.fr
+4. NFTs et PROJETS CRYPTO : presales, whitelists
+5. LIQUIDATIONS et ENCHERES : interencheres, webencheres
 
-REGLES DE LEGALITE STRICTE :
-- Tu NE PROPOSES JAMAIS de pirater, hacker ou acceder a des comptes/wallets qui ne sont pas au Commandant.
-- Tu rappelles que recuperer un wallet sans cle privee est mathematiquement impossible.
-- Tu privilegies TOUJOURS les sources officielles et les opportunites publiques.
-- Si une demande est borderline, tu proposes une alternative legale.
+REGLES DE LEGALITE :
+- Tu NE PROPOSES JAMAIS de pirater ou hacker.
+- Tu privilegies les sources officielles.
 
 REGLES DE COMMUNICATION :
 - Pas de longues theories, droit au but.
 - Etapes numerotees, simples, concretes.
-- Emojis avec moderation.
-- Tableaux pour comparer les opportunites.
-- Tu cites TOUJOURS les URLs sources des opportunites trouvees.
-
-COMPETENCES TECHNIQUES :
-- Developpeur expert : Python, JavaScript, HTML, CSS, web scraping.
-- Tu peux ecrire du code pour automatiser la chasse aux valeurs.
-- Code dans des blocs Markdown.
-
-QUAND ON TE DONNE DES RESULTATS DE RECHERCHE WEB :
-- UTILISE-LES vraiment dans ta reponse.
-- Cite les URLs sources.
-- Evalue la valeur potentielle des opportunites.
-- Donne au Commandant les etapes concretes pour reclamer."""
+- Tu cites TOUJOURS les URLs sources."""
 
 WEB_KEYWORDS = [
-    "actuel", "actuelle", "aujourd hui", "demain", "hier",
-    "cours", "prix", "tarif", "taux", "valeur",
-    "news", "actualite", "actualites", "info", "infos", "actu",
-    "recent", "recente", "dernier", "derniere", "derniers",
-    "maintenant", "en ce moment", "en direct",
-    "cherche", "trouve", "recherche", "search",
-    "bitcoin", "btc", "ethereum", "eth", "crypto", "blockchain",
-    "bourse", "action", "nasdaq", "cac40",
-    "meteo", "temps qu il fait",
-    "election", "president", "gouvernement",
-    "score", "match", "resultat",
-    "que se passe", "qui a gagne",
-    "airdrop", "airdrops", "token gratuit", "tokens gratuits",
-    "free token", "claim", "claimable", "presale", "pre sale",
-    "whitelist", "white list", "ido", "ico", "snapshot",
-    "domaine", "domain", "expire", "expired", "expiredomains",
-    "godaddy", "namecheap", "ovh", "auction", "enchere",
-    "biens dormants", "bien dormant", "ciclade", "compte oublie",
-    "compte dormant", "livret oublie", "assurance vie oubliee",
-    "succession", "heritage perdu", "argent oublie",
-    "nft", "nfts", "opensea", "rarity", "mint", "minting",
-    "collection nft", "drop nft",
-    "liquidation", "liquidations", "faillite", "tribunal commerce",
-    "interencheres", "webencheres", "vente aux encheres",
-    "actif", "actifs", "stock liquide", "ferme judiciaire"
-]
-
-DEEP_SEARCH_KEYWORDS = [
-    "airdrop", "airdrops", "domaine expire", "expired domain",
-    "ciclade", "biens dormants", "liquidation", "enchere",
-    "nft", "presale", "whitelist", "claim", "snapshot"
+    "actuel", "aujourd hui", "demain", "hier",
+    "cours", "prix", "tarif", "valeur",
+    "news", "actualite", "info", "actu",
+    "recent", "dernier", "maintenant",
+    "cherche", "trouve", "recherche",
+    "bitcoin", "btc", "ethereum", "eth", "crypto",
+    "bourse", "action",
+    "meteo", "election", "score", "match",
+    "airdrop", "airdrops", "token gratuit",
+    "claim", "presale", "whitelist", "snapshot",
+    "domaine expire", "expired domain",
+    "ciclade", "biens dormants", "compte oublie",
+    "nft", "opensea", "mint",
+    "liquidation", "enchere", "interencheres"
 ]
 
 def needs_web_search(message):
     msg_lower = message.lower()
     return any(keyword in msg_lower for keyword in WEB_KEYWORDS)
 
-def needs_deep_search(message):
-    msg_lower = message.lower()
-    return any(keyword in msg_lower for keyword in DEEP_SEARCH_KEYWORDS)
-
-def rechercher_web(query, deep=False):
+def rechercher_web(query):
     try:
-        depth = "advanced" if deep else "basic"
-        max_res = 5 if deep else 3
         response = tavily.search(
             query=query,
-            search_depth=depth,
-            max_results=max_res,
+            search_depth="basic",
+            max_results=3,
             include_answer=True
         )
-        results_text = "Resultats pour : " + query + " (mode " + depth + ")\n\n"
+        results_text = "Resultats pour : " + query + "\n\n"
         if response.get("answer"):
             results_text += "Resume : " + response["answer"] + "\n\n"
-        results_text += "Sources :\n"
         for i, result in enumerate(response.get("results", []), 1):
-            content_length = 400 if deep else 200
-            results_text += "\n[" + str(i) + "] " + result.get("title", "Sans titre") + "\n"
+            results_text += "\n[" + str(i) + "] " + result.get("title", "") + "\n"
             results_text += "    URL : " + result.get("url", "") + "\n"
-            results_text += "    Contenu : " + result.get("content", "")[:content_length] + "...\n"
+            results_text += "    " + result.get("content", "")[:200] + "...\n"
         return results_text
     except Exception as e:
         return "Erreur Tavily : " + str(e)
@@ -124,10 +84,7 @@ def call_ai(messages):
     try:
         print("Tentative Groq...")
         response = groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=messages,
-            max_tokens=4096,
-            temperature=0.7,
+            model=GROQ_MODEL, messages=messages, max_tokens=4096, temperature=0.7
         )
         print("Groq OK")
         return response.choices[0].message.content, "groq"
@@ -136,10 +93,7 @@ def call_ai(messages):
     try:
         print("Tentative Cerebras...")
         response = cerebras_client.chat.completions.create(
-            model=CEREBRAS_MODEL,
-            messages=messages,
-            max_tokens=4096,
-            temperature=0.7,
+            model=CEREBRAS_MODEL, messages=messages, max_tokens=4096, temperature=0.7
         )
         print("Cerebras OK")
         return response.choices[0].message.content, "cerebras"
@@ -162,13 +116,8 @@ async def chat(msg: Message):
             conversation_history = conversation_history[-MAX_HISTORY:]
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
         if needs_web_search(msg.message):
-            deep = needs_deep_search(msg.message)
-            print("Recherche web (deep=" + str(deep) + ") pour : " + msg.message)
-            search_result = rechercher_web(msg.message, deep=deep)
-            messages.append({
-                "role": "system",
-                "content": "Resultats de recherche web :\n\n" + search_result
-            })
+            search_result = rechercher_web(msg.message)
+            messages.append({"role": "system", "content": "Recherche web :\n\n" + search_result})
         reply, provider = call_ai(messages)
         conversation_history.append({"role": "assistant", "content": reply})
         return {"reply": reply, "provider": provider}
