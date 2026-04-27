@@ -4,14 +4,15 @@ from pydantic import BaseModel
 from groq import Groq
 from tavily import TavilyClient
 from cerebras.cloud.sdk import Cerebras
-from mistralai import Mistral
+from mistralai.client import MistralClient
+from mistralai.models.chat_completion import ChatMessage
 import os
 
 app = FastAPI()
 
 groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
 cerebras_client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
-mistral_client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
+mistral_client = MistralClient(api_key=os.environ["MISTRAL_API_KEY"])
 tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
@@ -59,8 +60,12 @@ def rechercher_web(query):
     except Exception as e:
         return "Erreur Tavily : " + str(e)
 
+def messages_to_mistral(messages):
+    """Convertit les messages au format Mistral."""
+    return [ChatMessage(role=m["role"], content=m["content"]) for m in messages]
+
 def call_ai(messages):
-    # 1. Tentative GROQ (cerveau principal)
+    # 1. Tentative GROQ
     try:
         print("Tentative Groq...")
         response = groq_client.chat.completions.create(
@@ -74,7 +79,7 @@ def call_ai(messages):
     except Exception as e:
         print("Groq KO : " + str(e)[:100])
     
-    # 2. Tentative CEREBRAS (cerveau secondaire)
+    # 2. Tentative CEREBRAS
     try:
         print("Tentative Cerebras...")
         response = cerebras_client.chat.completions.create(
@@ -88,12 +93,12 @@ def call_ai(messages):
     except Exception as e:
         print("Cerebras KO : " + str(e)[:100])
     
-    # 3. Tentative MISTRAL (cerveau de secours ultime)
+    # 3. Tentative MISTRAL
     try:
         print("Tentative Mistral...")
-        response = mistral_client.chat.complete(
+        response = mistral_client.chat(
             model=MISTRAL_MODEL,
-            messages=messages,
+            messages=messages_to_mistral(messages),
             max_tokens=4096,
             temperature=0.7,
         )
@@ -157,9 +162,9 @@ async def test_ai():
     
     # Test Mistral
     try:
-        r = mistral_client.chat.complete(
+        r = mistral_client.chat(
             model=MISTRAL_MODEL,
-            messages=[{"role": "user", "content": "Dis bonjour"}],
+            messages=[ChatMessage(role="user", content="Dis bonjour")],
             max_tokens=50
         )
         results["mistral"] = {"status": "OK", "response": r.choices[0].message.content}
