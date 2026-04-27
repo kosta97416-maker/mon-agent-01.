@@ -4,6 +4,3 @@ pydantic
 groq
 tavily-python
 cerebras-cloud-sdk
-flask
-requests
-openai
