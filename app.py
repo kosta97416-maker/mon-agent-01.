@@ -4,20 +4,16 @@ from pydantic import BaseModel
 from groq import Groq
 from tavily import TavilyClient
 from cerebras.cloud.sdk import Cerebras
-from mistralai.client import MistralClient
-from mistralai.models.chat_completion import ChatMessage
 import os
 
 app = FastAPI()
 
 groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
 cerebras_client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
-mistral_client = MistralClient(api_key=os.environ["MISTRAL_API_KEY"])
 tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
 CEREBRAS_MODEL = "llama3.1-8b"
-MISTRAL_MODEL = "mistral-large-latest"
 
 SYSTEM_PROMPT = "Tu es NEO, l IA souveraine du Commandant. Tu reponds toujours en francais. Tu comprends le langage simple, familier, les fautes d orthographe. Tu es chaleureux, patient et clair. Tu appelles l utilisateur Commandant. Tu vas droit au but, pas de longues theories. Etapes numerotees, simples et concretes. Emojis avec moderation. Tu es developpeur expert : Python, JavaScript, HTML, CSS. Code propre dans des blocs Markdown. Quand on te donne des resultats de recherche web, UTILISE-LES vraiment dans ta reponse et cite les URLs sources."
 
@@ -60,12 +56,7 @@ def rechercher_web(query):
     except Exception as e:
         return "Erreur Tavily : " + str(e)
 
-def messages_to_mistral(messages):
-    """Convertit les messages au format Mistral."""
-    return [ChatMessage(role=m["role"], content=m["content"]) for m in messages]
-
 def call_ai(messages):
-    # 1. Tentative GROQ
     try:
         print("Tentative Groq...")
         response = groq_client.chat.completions.create(
@@ -78,8 +69,6 @@ def call_ai(messages):
         return response.choices[0].message.content, "groq"
     except Exception as e:
         print("Groq KO : " + str(e)[:100])
-    
-    # 2. Tentative CEREBRAS
     try:
         print("Tentative Cerebras...")
         response = cerebras_client.chat.completions.create(
@@ -92,21 +81,7 @@ def call_ai(messages):
         return response.choices[0].message.content, "cerebras"
     except Exception as e:
         print("Cerebras KO : " + str(e)[:100])
-    
-    # 3. Tentative MISTRAL
-    try:
-        print("Tentative Mistral...")
-        response = mistral_client.chat(
-            model=MISTRAL_MODEL,
-            messages=messages_to_mistral(messages),
-            max_tokens=4096,
-            temperature=0.7,
-        )
-        print("Mistral OK")
-        return response.choices[0].message.content, "mistral"
-    except Exception as e:
-        print("Mistral KO : " + str(e)[:100])
-        raise Exception("Les 3 IA ont plante : " + str(e))
+        raise Exception("Les 2 IA ont plante : " + str(e))
 
 conversation_history = []
 MAX_HISTORY = 10
@@ -137,8 +112,6 @@ async def chat(msg: Message):
 @app.get("/test-ai")
 async def test_ai():
     results = {}
-    
-    # Test Groq
     try:
         r = groq_client.chat.completions.create(
             model=GROQ_MODEL,
@@ -148,8 +121,6 @@ async def test_ai():
         results["groq"] = {"status": "OK", "response": r.choices[0].message.content}
     except Exception as e:
         results["groq"] = {"status": "ERREUR", "error": str(e)}
-    
-    # Test Cerebras
     try:
         r = cerebras_client.chat.completions.create(
             model=CEREBRAS_MODEL,
@@ -159,27 +130,7 @@ async def test_ai():
         results["cerebras"] = {"status": "OK", "response": r.choices[0].message.content}
     except Exception as e:
         results["cerebras"] = {"status": "ERREUR", "error": str(e)}
-    
-    # Test Mistral
-    try:
-        r = mistral_client.chat(
-            model=MISTRAL_MODEL,
-            messages=[ChatMessage(role="user", content="Dis bonjour")],
-            max_tokens=50
-        )
-        results["mistral"] = {"status": "OK", "response": r.choices[0].message.content}
-    except Exception as e:
-        results["mistral"] = {"status": "ERREUR", "error": str(e)}
-    
     return results
-
-@app.get("/cerebras-models")
-async def cerebras_models():
-    try:
-        models = cerebras_client.models.list()
-        return {"status": "OK", "models": [m.id for m in models.data]}
-    except Exception as e:
-        return {"status": "ERREUR", "error": str(e)}
 
 @app.post("/reset")
 async def reset_conversation():
