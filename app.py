@@ -1,154 +1,235 @@
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
+from groq import Groq
+from tavily import TavilyClient
+from cerebras.cloud.sdk import Cerebras
 import os
-import requests
-import random
-from flask import Flask, render_template_string
 
-app = Flask(__name__)
+app = FastAPI()
 
-# CONFIGURATION RÉELLE
-WALLET_DEST = os.environ.get("WALLET_DESTINATION", "0x_NON_CONFIGURÉ")
+groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
+cerebras_client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
+tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
-def get_eth_price():
+GROQ_MODEL = "llama-3.3-70b-versatile"
+CEREBRAS_MODEL = "llama3.1-8b"
+
+# NEO devient un CHASSEUR DE VALEURS POLYVALENT
+SYSTEM_PROMPT = """Tu es NEO, l IA souveraine du Commandant.
+
+PERSONNALITE :
+- Tu reponds toujours en francais.
+- Tu comprends le langage simple, familier, les fautes d orthographe.
+- Tu es chaleureux, patient, clair, jamais condescendant.
+- Tu appelles l utilisateur Commandant.
+
+MISSION PRINCIPALE - CHASSEUR DE VALEURS LEGALES :
+Tu es specialise dans la decouverte et la recuperation legale de valeurs perdues sur le web :
+1. AIRDROPS CRYPTO : tokens gratuits a reclamer (sites comme airdrops.io, defiairdrops.com, coinmarketcap)
+2. DOMAINES EXPIRES : noms de domaines a racheter (expireddomains.net, godaddy auctions)
+3. BIENS DORMANTS : comptes/livrets oublies en France (ciclade.caissedesdepots.fr - SITE OFFICIEL)
+4. NFTs et PROJETS CRYPTO : presales, whitelists, projets a venir (cryptoslam, nftcalendar)
+5. LIQUIDATIONS et ENCHERES : actifs publics a prix casses (interencheres, webencheres, tribunaux de commerce)
+
+REGLES DE LEGALITE STRICTE :
+- Tu NE PROPOSES JAMAIS de pirater, hacker ou acceder \u00e0 des comptes/wallets qui ne sont pas au Commandant.
+- Tu rappelles que recuperer un wallet sans cle privee est mathematiquement impossible.
+- Tu privilegies TOUJOURS les sources officielles et les opportunites publiques.
+- Si une demande est borderline, tu proposes une alternative legale.
+
+REGLES DE COMMUNICATION :
+- Pas de longues theories, droit au but.
+- Etapes numerotees, simples, concretes.
+- Emojis avec moderation (\u2705 \u274c \ud83c\udfaf \ud83d\ude80 \ud83d\udcb0 \ud83c\udfb4).
+- Tableaux pour comparer les opportunites.
+- Tu cites TOUJOURS les URLs sources des opportunites trouvees.
+
+COMPETENCES TECHNIQUES :
+- Developpeur expert : Python, JavaScript, HTML, CSS, web scraping.
+- Tu peux ecrire du code pour automatiser la chasse aux valeurs.
+- Code dans des blocs Markdown ```langage ... ```
+
+QUAND ON TE DONNE DES RESULTATS DE RECHERCHE WEB :
+- UTILISE-LES vraiment dans ta reponse (ne les ignore pas).
+- Cite les URLs sources.
+- Evalue la valeur potentielle des opportunites.
+- Donne au Commandant les etapes concretes pour reclamer."""
+
+# WEB_KEYWORDS ENRICHIS pour declencher Tavily sur les recherches de valeurs
+WEB_KEYWORDS = [
+    # Termes generaux
+    "actuel", "actuelle", "aujourd hui", "demain", "hier",
+    "cours", "prix", "tarif", "taux", "valeur",
+    "news", "actualite", "actualites", "info", "infos", "actu",
+    "recent", "recente", "dernier", "derniere", "derniers",
+    "maintenant", "en ce moment", "en direct",
+    "cherche", "trouve", "recherche", "search",
+    
+    # Crypto / Bitcoin
+    "bitcoin", "btc", "ethereum", "eth", "crypto", "blockchain",
+    "bourse", "action", "nasdaq", "cac40",
+    
+    # Meteo / Politique / Sport
+    "meteo", "temps qu il fait",
+    "election", "president", "gouvernement",
+    "score", "match", "resultat",
+    "que se passe", "qui a gagne",
+    
+    # CHASSE AUX VALEURS - AIRDROPS
+    "airdrop", "airdrops", "token gratuit", "tokens gratuits",
+    "free token", "claim", "claimable", "presale", "pre sale",
+    "whitelist", "white list", "ido", "ico", "snapshot",
+    
+    # DOMAINES EXPIRES
+    "domaine", "domain", "expire", "expired", "expiredomains",
+    "godaddy", "namecheap", "ovh", "auction", "enchere",
+    
+    # BIENS DORMANTS
+    "biens dormants", "bien dormant", "ciclade", "compte oublie",
+    "compte dormant", "livret oublie", "assurance vie oubliee",
+    "succession", "heritage perdu", "argent oublie",
+    
+    # NFTs
+    "nft", "nfts", "opensea", "rarity", "mint", "minting",
+    "collection nft", "drop nft",
+    
+    # LIQUIDATIONS / ENCHERES
+    "liquidation", "liquidations", "faillite", "tribunal commerce",
+    "interencheres", "webencheres", "vente aux encheres",
+    "actif", "actifs", "stock liquide", "ferme judiciaire"
+]
+
+# Mots-cles qui activent la recherche AVANCEE (plus de resultats, plus profond)
+DEEP_SEARCH_KEYWORDS = [
+    "airdrop", "airdrops", "domaine expire", "expired domain",
+    "ciclade", "biens dormants", "liquidation", "enchere",
+    "nft", "presale", "whitelist", "claim", "snapshot"
+]
+
+def needs_web_search(message):
+    msg_lower = message.lower()
+    return any(keyword in msg_lower for keyword in WEB_KEYWORDS)
+
+def needs_deep_search(message):
+    """Detecte si la question necessite une recherche AVANCEE."""
+    msg_lower = message.lower()
+    return any(keyword in msg_lower for keyword in DEEP_SEARCH_KEYWORDS)
+
+def rechercher_web(query, deep=False):
+    """Effectue une recherche via Tavily (basic ou advanced)."""
     try:
-        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=ETHEUR", timeout=5)
-        return float(r.json()['price'])
-    except: return 2350.0
+        depth = "advanced" if deep else "basic"
+        max_res = 5 if deep else 3
+        
+        response = tavily.search(
+            query=query,
+            search_depth=depth,
+            max_results=max_res,
+            include_answer=True
+        )
+        results_text = "Resultats pour : " + query + " (mode " + depth + ")\n\n"
+        if response.get("answer"):
+            results_text += "Resume : " + response["answer"] + "\n\n"
+        results_text += "Sources :\n"
+        for i, result in enumerate(response.get("results", []), 1):
+            content_length = 400 if deep else 200
+            results_text += "\n[" + str(i) + "] " + result.get("title", "Sans titre") + "\n"
+            results_text += "    URL : " + result.get("url", "") + "\n"
+            results_text += "    Contenu : " + result.get("content", "")[:content_length] + "...\n"
+        return results_text
+    except Exception as e:
+        return "Erreur Tavily : " + str(e)
 
-@app.route('/')
-def index():
-    taux = get_eth_price()
-    return render_template_string("""
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body { background: #000; color: #00FF41; font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
-            canvas { position: fixed; top: 0; left: 0; z-index: 1; opacity: 0.15; }
-            .ui-wrapper { position: relative; z-index: 10; display: flex; height: 100vh; }
-            
-            /* MENU LATÉRAL */
-            .sidebar { width: 250px; border-right: 1px solid #00FF41; background: rgba(0,10,0,0.95); padding: 20px; box-shadow: 10px 0 20px rgba(0,255,65,0.1); }
-            .nav { margin-top: 30px; }
-            .nav-btn { padding: 15px; border: 1px solid #004400; margin-bottom: 15px; cursor: pointer; font-size: 0.8em; transition: 0.3s; }
-            .nav-btn:hover { background: rgba(0,255,65,0.1); }
-            .nav-btn.active { background: #00FF41; color: #000; font-weight: bold; }
-            .nav-btn.alert { border-color: #ff0000; color: #ff0000; font-weight: bold; animation: blink 0.8s infinite; }
-            
-            @keyframes blink { 0% {opacity:1;} 50% {opacity:0.3;} 100% {opacity:1;} }
+def call_ai(messages):
+    # 1. Tentative GROQ
+    try:
+        print("Tentative Groq...")
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=messages,
+            max_tokens=4096,
+            temperature=0.7,
+        )
+        print("Groq OK")
+        return response.choices[0].message.content, "groq"
+    except Exception as e:
+        print("Groq KO : " + str(e)[:100])
+    
+    # 2. Tentative CEREBRAS
+    try:
+        print("Tentative Cerebras...")
+        response = cerebras_client.chat.completions.create(
+            model=CEREBRAS_MODEL,
+            messages=messages,
+            max_tokens=4096,
+            temperature=0.7,
+        )
+        print("Cerebras OK")
+        return response.choices[0].message.content, "cerebras"
+    except Exception as e:
+        print("Cerebras KO : " + str(e)[:100])
+        raise Exception("Les 2 IA ont plante : " + str(e))
 
-            /* ZONE PRINCIPALE */
-            .main { flex-grow: 1; padding: 30px; display: flex; flex-direction: column; }
-            .display-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-            .stat-box { border: 2px solid #00FF41; background: rgba(0,5,0,0.9); padding: 25px; text-align: center; box-shadow: inset 0 0 15px rgba(0,255,65,0.2); }
-            .stat-box.blue { border-color: #00E5FF; color: #00E5FF; }
-            .val-large { font-size: 2.8em; font-weight: bold; display: block; margin-top: 10px; }
+conversation_history = []
+MAX_HISTORY = 10
 
-            #terminal { flex-grow: 1; background: rgba(0,0,0,0.95); border: 1px solid #111; padding: 20px; overflow-y: auto; font-size: 0.9em; line-height: 1.5; border-radius: 5px; }
-            .sign-panel { display: none; border: 2px solid #facc15; background: rgba(20,20,0,0.95); padding: 30px; border-radius: 10px; text-align: center; }
-            .btn-action { background: #00FF41; color: #000; border: none; padding: 20px; width: 100%; font-weight: bold; font-size: 1.2em; cursor: pointer; margin-top: 20px; }
-            
-            .wallet-tag { font-size: 0.6em; color: #555; position: absolute; bottom: 20px; }
-        </style>
-    </head>
-    <body>
-        <canvas id="matrix"></canvas>
-        <div class="ui-wrapper">
-            <div class="sidebar">
-                <div style="font-size: 1.2em; font-weight: bold; letter-spacing: 2px;">NÉO_CORE_v5</div>
-                <div class="nav">
-                    <div class="nav-btn active" id="btn-mon" onclick="switchTab('mon')">SCAVENGER_MONITOR</div>
-                    <div class="nav-btn alert" id="btn-sig" onclick="switchTab('sig')">SIGNATURE_REQUIS (1)</div>
-                    <div class="nav-btn">HISTORIQUE_FLUX</div>
-                </div>
-                <div class="wallet-tag">TARGET: {{ wallet }}</div>
-            </div>
+class Message(BaseModel):
+    message: str
 
-            <div class="main">
-                <div class="display-grid">
-                    <div class="stat-box">
-                        <span style="font-size: 0.8em; opacity: 0.7;">BUTIN LOCALISÉ (ETH)</span>
-                        <span class="val-large" id="eth-val">0.045200</span>
-                    </div>
-                    <div class="stat-box blue">
-                        <span style="font-size: 0.8em; opacity: 0.7;">VALEUR CONVERTIE (EUR)</span>
-                        <span class="val-large" id="eur-val">{{ "%.2f"|format(0.0452 * taux) }} €</span>
-                    </div>
-                </div>
+@app.post("/chat")
+async def chat(msg: Message):
+    global conversation_history
+    try:
+        conversation_history.append({"role": "user", "content": msg.message})
+        if len(conversation_history) > MAX_HISTORY:
+            conversation_history = conversation_history[-MAX_HISTORY:]
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
+        
+        if needs_web_search(msg.message):
+            deep = needs_deep_search(msg.message)
+            print("Recherche web (deep=" + str(deep) + ") pour : " + msg.message)
+            search_result = rechercher_web(msg.message, deep=deep)
+            messages.append({
+                "role": "system",
+                "content": "Resultats de recherche web :\n\n" + search_result
+            })
+        
+        reply, provider = call_ai(messages)
+        conversation_history.append({"role": "assistant", "content": reply})
+        return {"reply": reply, "provider": provider}
+    except Exception as e:
+        return {"reply": "Erreur : " + str(e)}
 
-                <div id="view-mon">
-                    <div id="terminal"></div>
-                </div>
+@app.get("/test-ai")
+async def test_ai():
+    results = {}
+    try:
+        r = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": "Dis bonjour"}],
+            max_tokens=50
+        )
+        results["groq"] = {"status": "OK", "response": r.choices[0].message.content}
+    except Exception as e:
+        results["groq"] = {"status": "ERREUR", "error": str(e)}
+    try:
+        r = cerebras_client.chat.completions.create(
+            model=CEREBRAS_MODEL,
+            messages=[{"role": "user", "content": "Dis bonjour"}],
+            max_tokens=50
+        )
+        results["cerebras"] = {"status": "OK", "response": r.choices[0].message.content}
+    except Exception as e:
+        results["cerebras"] = {"status": "ERREUR", "error": str(e)}
+    return results
 
-                <div id="view-sig" class="sign-panel">
-                    <h2 style="color: #facc15;">AUTORISATION DE RÉCUPÉRATION</h2>
-                    <p>NÉO a identifié un reliquat orphelin sur le réseau.</p>
-                    <div style="background: #111; padding: 15px; margin: 20px 0; border-left: 4px solid #00FF41; text-align: left;">
-                        RESEAU: Ethereum_Mainnet<br>
-                        MONTANT: 0.0452 ETH<br>
-                        FRAIS GAS: 0.0012 ETH (Auto-financé)
-                    </div>
-                    <button class="btn-action" onclick="finish()">SIGNER & ENVOYER VERS ZENGO</button>
-                </div>
-            </div>
-        </div>
+@app.post("/reset")
+async def reset_conversation():
+    global conversation_history
+    conversation_history = []
+    return {"status": "Memoire effacee."}
 
-        <script>
-            // MATRIX RAIN SCRIPT
-            const canvas = document.getElementById('matrix');
-            const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-            const chars = "01010101NÉOSCAVENGERRECOVERYBLOCKCHAIN";
-            const fontSize = 14; const columns = canvas.width/fontSize;
-            const drops = Array(Math.floor(columns)).fill(1);
-            function draw() {
-                ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(0,0,canvas.width,canvas.height);
-                ctx.fillStyle = "#00FF41"; ctx.font = fontSize + "px monospace";
-                drops.forEach((y, i) => {
-                    ctx.fillText(chars[Math.floor(Math.random()*chars.length)], i*fontSize, y*fontSize);
-                    if(y*fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0; drops[i]++;
-                });
-            }
-            setInterval(draw, 35);
-
-            // LOGIQUE DE NAVIGATION
-            function switchTab(tab) {
-                document.getElementById('view-mon').style.display = tab === 'mon' ? 'block' : 'none';
-                document.getElementById('view-sig').style.display = tab === 'sig' ? 'block' : 'none';
-                document.getElementById('btn-mon').classList.toggle('active', tab === 'mon');
-                document.getElementById('btn-sig').classList.toggle('active', tab === 'sig');
-            }
-
-            // SIMULATION DE SCAN RÉEL
-            const term = document.getElementById('terminal');
-            const logs = [
-                "Scan des adresses dormantes...",
-                "Analyse des contrats ERC-20 abandonnés...",
-                "Vérification des pools de liquidité...",
-                "Détection de poussière réseau (Dust)...",
-                "Calcul de l'itinéraire de transfert optimal..."
-            ];
-
-            setInterval(() => {
-                if(document.getElementById('view-mon').style.display !== 'none') {
-                    const line = document.createElement('div');
-                    line.style.color = Math.random() > 0.8 ? "#00FF41" : "#555";
-                    line.innerHTML = `> [${new Date().toLocaleTimeString()}] ${logs[Math.floor(Math.random()*logs.length)]} ... [OK]`;
-                    term.appendChild(line);
-                    if(term.childNodes.length > 15) term.removeChild(term.firstChild);
-                    term.scrollTop = term.scrollHeight;
-                }
-            }, 1500);
-
-            function finish() {
-                alert("REQUÊTE ENVOYÉE. Validez sur votre application Zengo (Biométrie requise).");
-                location.reload();
-            }
-        </script>
-    </body>
-    </html>
-    """, wallet=WALLET_DEST, taux=taux)
-
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
-
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return open("templates/index.html").read()
