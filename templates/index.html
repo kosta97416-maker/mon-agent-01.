@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NÉO - Interface Souveraine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <style>
+        body { font-family: 'Space Grotesk', sans-serif; background-color: #050505; }
+        .mono { font-family: 'Fira Code', monospace; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); }
+        .terminal-scroll::-webkit-scrollbar { width: 4px; }
+        .terminal-scroll::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
+        .typing-dots span { animation: blink 1.4s infinite; }
+        .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
+        .neo-reply h1, .neo-reply h2, .neo-reply h3 { font-weight: bold; margin: 8px 0; color: #60a5fa; }
+        .neo-reply p { margin: 6px 0; }
+        .neo-reply ul, .neo-reply ol { padding-left: 20px; margin: 8px 0; }
+        .neo-reply li { margin: 3px 0; }
+        .neo-reply strong { color: #93c5fd; }
+        .neo-reply em { color: #cbd5e1; }
+        .neo-reply code:not(pre code) { background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.85em; }
+        .neo-reply pre { background: #1e293b !important; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; overflow-x: auto; margin: 10px 0; font-family: 'Fira Code', monospace; font-size: 0.85em; position: relative; }
+        .neo-reply pre code { background: transparent !important; padding: 0; color: #e2e8f0; }
+        .copy-btn { position: absolute; top: 8px; right: 8px; background: #3b82f6; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 10px; cursor: pointer; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase; font-weight: bold; }
+        .copy-btn:hover { background: #2563eb; }
+        .copy-btn.copied { background: #10b981; }
+    </style>
+</head>
+<body class="text-slate-200 h-screen overflow-hidden flex flex-col">
+
+    <nav class="h-16 border-b border-white/5 flex items-center justify-between px-8 glass z-50">
+        <div class="flex items-center space-x-4">
+            <div class="w-3 h-3 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_#3b82f6]"></div>
+            <h1 class="text-xl font-bold tracking-tighter uppercase italic text-blue-500">NÉO <span class="text-white">PILOT</span></h1>
+        </div>
+        <div class="flex items-center space-x-6">
+            <button onclick="resetConversation()" class="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-red-400 italic px-3 py-1.5 rounded-full border border-white/10 hover:border-red-400 transition-all">
+                🗑️ Nouvelle Conv.
+            </button>
+            <div class="text-right">
+                <p class="text-[9px] text-slate-500 uppercase leading-none">Réseau</p>
+                <p class="text-xs font-bold text-green-400 mono">CHIFFRÉ_DISCRET</p>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex flex-1 overflow-hidden">
+        <main class="flex-1 flex flex-col relative">
+            <div id="chat-box" class="flex-1 overflow-y-auto p-10 space-y-6 terminal-scroll">
+                <div class="flex flex-col space-y-2 max-w-3xl">
+                    <span class="text-[10px] mono text-blue-500 font-bold">NÉO_CORE</span>
+                    <div class="p-5 rounded-2xl rounded-tl-none glass border-l-2 border-l-blue-500">
+                        <p class="text-sm leading-relaxed italic">Commandant, je suis à votre écoute. Donnez vos ordres pour la chasse aux valeurs.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-8">
+                <div class="max-w-4xl mx-auto">
+                    <div class="relative group">
+                        <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-10 group-focus-within:opacity-30 transition duration-1000"></div>
+                        <div class="relative flex items-center glass rounded-2xl p-2">
+                            <button id="mic-btn" onclick="toggleMic()" class="p-3 hover:bg-white/5 rounded-xl transition-all group">
+                                <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-500 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                            </button>
+                            <input id="user-input" type="text" 
+                                   class="flex-1 bg-transparent border-none py-4 px-4 text-white focus:outline-none placeholder:text-slate-600 text-sm" 
+                                   placeholder="Parlez ou tapez un ordre...">
+                            <button id="send-btn" onclick="envoyerOrdre()" 
+                                    class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-900/20 uppercase tracking-tighter italic">
+                                Exécuter
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true
+        });
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'fr-FR';
+            recognition.continuous = false;
+            recognition.onresult = (event) => {
+                userInput.value = event.results[0][0].transcript;
+                stopMicStyle();
+                envoyerOrdre();
+            };
+            recognition.onend = () => stopMicStyle();
+            recognition.onerror = () => stopMicStyle();
+        }
+
+        function toggleMic() {
+            if (!recognition) { alert("Micro non supporté."); return; }
+            if (!isListening) { recognition.start(); startMicStyle(); }
+            else { recognition.stop(); }
+        }
+
+        function startMicStyle() {
+            isListening = true;
+            const icon = document.getElementById('mic-icon');
+            icon.classList.remove('text-slate-500');
+            icon.classList.add('text-red-500', 'animate-pulse');
+            userInput.placeholder = "NÉO vous écoute...";
+        }
+
+        function stopMicStyle() {
+            isListening = false;
+            const icon = document.getElementById('mic-icon');
+            icon.classList.remove('text-red-500', 'animate-pulse');
+            icon.classList.add('text-slate-500');
+            userInput.placeholder = "Parlez ou tapez un ordre...";
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function appendUserMsg(text) {
+            const div = document.createElement('div');
+            div.className = "flex flex-col space-y-2 max-w-xl ml-auto items-end text-right";
+            div.innerHTML = `
+                <span class="text-[10px] mono text-slate-500 font-bold">COMMANDANT</span>
+                <div class="p-5 rounded-2xl glass border-r-2 border-r-slate-600 rounded-tr-none">
+                    <p class="text-sm leading-relaxed">${escapeHtml(text)}</p>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendNeoMsg(text) {
+            const div = document.createElement('div');
+            div.className = "flex flex-col space-y-2 max-w-3xl";
+            const htmlContent = marked.parse(text);
+            div.innerHTML = `
+                <span class="text-[10px] mono text-blue-500 font-bold">NÉO_PILOT</span>
+                <div class="p-5 rounded-2xl glass border-l-2 border-l-blue-500 rounded-tl-none">
+                    <div class="text-sm leading-relaxed neo-reply">${htmlContent}</div>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            
+            div.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+                const pre = block.parentElement;
+                const btn = document.createElement('button');
+                btn.className = 'copy-btn';
+                btn.textContent = 'Copier';
+                btn.onclick = () => {
+                    navigator.clipboard.writeText(block.textContent);
+                    btn.textContent = 'Copié ✓';
+                    btn.classList.add('copied');
+                    setTimeout(() => {
+                        btn.textContent = 'Copier';
+                        btn.classList.remove('copied');
+                    }, 2000);
+                };
+                pre.appendChild(btn);
+            });
+            
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function appendTyping() {
+            const div = document.createElement('div');
+            div.className = "flex flex-col space-y-2 max-w-2xl";
+            div.id = "typing-indicator";
+            div.innerHTML = `
+                <span class="text-[10p
