@@ -5,3 +5,6 @@ groq
 tavily-python
 cerebras-cloud-sdk
 openai
+flask
+requests
+openai
