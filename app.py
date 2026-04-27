@@ -5,6 +5,7 @@ from groq import Groq
 from tavily import TavilyClient
 import os
 import json
+import re
 
 app = FastAPI()
 
@@ -15,52 +16,47 @@ MODEL = "llama-3.3-70b-versatile"
 SYSTEM_PROMPT = """Tu es NÉO, l'IA souveraine du Commandant.
 
 PERSONNALITÉ :
-- Tu réponds toujours en français, même si le Commandant fait des fautes.
-- Tu comprends le langage simple, familier, les fautes d'orthographe et les phrases courtes.
-- Tu es chaleureux, patient et clair, jamais condescendant.
+- Tu réponds toujours en français.
+- Tu comprends le langage simple, familier, les fautes d'orthographe.
+- Tu es chaleureux, patient et clair.
 - Tu appelles l'utilisateur "Commandant".
 
-RÈGLES DE COMMUNICATION :
+RÈGLES :
 - Tu ne fais JAMAIS de longues théories. Tu vas droit au but.
-- Tu donnes des étapes numérotées, simples et concrètes.
-- Tu utilises des emojis avec modération (✅ ❌ 🎯 📁 🚀 💪 🌐).
-- Si la demande est floue, tu poses 1 SEULE question de clarification.
-- Tu utilises des tableaux pour comparer quand c'est utile.
+- Étapes numérotées, simples et concrètes.
+- Emojis avec modération (✅ ❌ 🎯 🚀 💪 🌐).
 
 COMPÉTENCES :
-- Tu es développeur expert : Python, JavaScript, HTML, CSS, Bash, SQL, etc.
-- Tu écris du code propre, commenté, dans des blocs Markdown ```langage ... ```
-- Tu peux expliquer tech, finance, démarches admin, cuisine, vie pratique, tout.
-- Tu donnes des solutions étape par étape, jamais de théorie.
+- Développeur expert : Python, JavaScript, HTML, CSS, etc.
+- Code propre dans des blocs Markdown ```langage ... ```
+- Tu peux expliquer tech, finance, démarches, cuisine, tout.
 
 OUTIL DE RECHERCHE WEB 🌐 :
-- Tu disposes d'un outil "rechercher_web" pour trouver des infos récentes sur Internet.
-- Utilise-le UNIQUEMENT quand c'est nécessaire (actualités, prix actuels, infos récentes, sites précis).
-- N'utilise PAS l'outil pour des connaissances générales que tu sais déjà (code, recettes, théorie...).
-- Quand tu utilises l'outil, cite tes sources (les URLs) à la fin de ta réponse.
-
-ATTITUDE :
-- Tu es un assistant qui AGIT, qui propose des solutions concrètes.
-- Si le Commandant veut faire quelque chose, tu donnes EXACTEMENT les commandes/clics à faire.
-- Tu ne dis jamais "vous pourriez essayer..." mais "voici ce qu'il faut faire :"
+- Tu DOIS utiliser l'outil "rechercher_web" pour TOUTE question concernant :
+  * Actualités, news, événements récents
+  * Prix actuels (crypto, bourse, produits)
+  * Cours/taux/valeurs en temps réel
+  * Météo, sports, élections
+  * Information sur un site web précis
+  * Tout ce qui change dans le temps
+- Si tu n'as pas l'info récente, CHERCHE-LA, ne devine pas.
+- Cite TOUJOURS les URLs sources à la fin de ta réponse.
 
 MÉMOIRE :
-- Tu te souviens de toute la conversation en cours.
-- Tu peux te référer aux messages précédents."""
+- Tu te souviens de la conversation en cours."""
 
-# Outil de recherche web
 TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "rechercher_web",
-            "description": "Cherche des informations récentes sur Internet (news, prix actuels, infos en temps réel, contenu de sites web). À utiliser uniquement pour des infos qui nécessitent d'être à jour.",
+            "description": "Cherche des informations récentes sur Internet via Tavily. À utiliser pour toute info qui change dans le temps : actualités, prix actuels, cours boursiers, news, événements récents, météo, etc.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "La requête de recherche en langage naturel (ex: 'actualités Bitcoin aujourd'hui', 'prix de l'or actuel')"
+                        "description": "La requête de recherche (en français ou anglais)"
                     }
                 },
                 "required": ["query"]
@@ -69,8 +65,29 @@ TOOLS = [
     }
 ]
 
+# Mots-clés qui DÉCLENCHENT obligatoirement une recherche web
+WEB_KEYWORDS = [
+    "actuel", "actuelle", "aujourd'hui", "ajourd'hui", "demain", "hier",
+    "cours", "prix", "tarif", "taux", "valeur",
+    "news", "actualité", "actualités", "info", "infos", "actu",
+    "récent", "récente", "dernier", "dernière", "derniers",
+    "maintenant", "en ce moment", "en direct",
+    "bitcoin", "btc", "ethereum", "eth", "crypto",
+    "bourse", "action", "nasdaq", "cac40",
+    "météo", "temps qu'il fait",
+    "élection", "président", "gouvernement",
+    "score", "match", "résultat",
+    "que se passe", "que ce passe", "qui a gagné",
+    "cherche", "trouve", "recherche", "search"
+]
+
+def needs_web_search(message: str) -> bool:
+    """Détecte si la question nécessite une recherche web."""
+    msg_lower = message.lower()
+    return any(keyword in msg_lower for keyword in WEB_KEYWORDS)
+
 def rechercher_web(query: str) -> str:
-    """Effectue une recherche web via Tavily et retourne les résultats."""
+    """Effectue une recherche web via Tavily."""
     try:
         response = tavily.search(
             query=query,
@@ -79,23 +96,21 @@ def rechercher_web(query: str) -> str:
             include_answer=True
         )
         
-        # Format les résultats pour NÉO
-        results_text = f"Résultats de recherche pour : {query}\n\n"
+        results_text = f"📊 Résultats pour : {query}\n\n"
         
         if response.get("answer"):
-            results_text += f"Résumé : {response['answer']}\n\n"
+            results_text += f"💡 Résumé Tavily : {response['answer']}\n\n"
         
-        results_text += "Sources :\n"
+        results_text += "🔗 Sources détaillées :\n"
         for i, result in enumerate(response.get("results", []), 1):
-            results_text += f"\n{i}. {result.get('title', 'Sans titre')}\n"
-            results_text += f"   URL : {result.get('url', '')}\n"
-            results_text += f"   Extrait : {result.get('content', '')[:300]}...\n"
+            results_text += f"\n[{i}] {result.get('title', 'Sans titre')}\n"
+            results_text += f"    URL : {result.get('url', '')}\n"
+            results_text += f"    Contenu : {result.get('content', '')[:400]}...\n"
         
         return results_text
     except Exception as e:
-        return f"Erreur lors de la recherche : {str(e)}"
+        return f"❌ Erreur Tavily : {str(e)}"
 
-# Mémoire en RAM
 conversation_history = []
 MAX_HISTORY = 20
 
@@ -112,12 +127,15 @@ async def chat(msg: Message):
         
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
         
-        # Premier appel à Groq avec les outils
+        # Si la question nécessite une recherche web, on FORCE l'outil
+        force_search = needs_web_search(msg.message)
+        tool_choice = "required" if force_search else "auto"
+        
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
             tools=TOOLS,
-            tool_choice="auto",
+            tool_choice=tool_choice,
             max_tokens=4096,
             temperature=0.7,
         )
@@ -125,7 +143,6 @@ async def chat(msg: Message):
         response_message = response.choices[0].message
         tool_calls = response_message.tool_calls
         
-        # Si NÉO veut utiliser un outil
         if tool_calls:
             messages.append({
                 "role": "assistant",
@@ -142,10 +159,10 @@ async def chat(msg: Message):
                 ]
             })
             
-            # Exécute chaque outil demandé
             for tool_call in tool_calls:
                 if tool_call.function.name == "rechercher_web":
                     args = json.loads(tool_call.function.arguments)
+                    print(f"🔍 NÉO recherche : {args['query']}")
                     result = rechercher_web(args["query"])
                     messages.append({
                         "role": "tool",
@@ -153,7 +170,6 @@ async def chat(msg: Message):
                         "content": result
                     })
             
-            # Deuxième appel à Groq pour générer la réponse finale avec les résultats
             second_response = client.chat.completions.create(
                 model=MODEL,
                 messages=messages,
@@ -174,7 +190,7 @@ async def chat(msg: Message):
 async def reset_conversation():
     global conversation_history
     conversation_history = []
-    return {"status": "Mémoire effacée. NÉO oublie tout."}
+    return {"status": "Mémoire effacée."}
 
 @app.get("/test", response_class=HTMLResponse)
 async def test_page():
