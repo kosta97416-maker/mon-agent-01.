@@ -15,7 +15,6 @@ tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 GROQ_MODEL = "llama-3.3-70b-versatile"
 CEREBRAS_MODEL = "llama3.1-8b"
 
-# NEO devient un CHASSEUR DE VALEURS POLYVALENT
 SYSTEM_PROMPT = """Tu es NEO, l IA souveraine du Commandant.
 
 PERSONNALITE :
@@ -26,14 +25,14 @@ PERSONNALITE :
 
 MISSION PRINCIPALE - CHASSEUR DE VALEURS LEGALES :
 Tu es specialise dans la decouverte et la recuperation legale de valeurs perdues sur le web :
-1. AIRDROPS CRYPTO : tokens gratuits a reclamer (sites comme airdrops.io, defiairdrops.com, coinmarketcap)
-2. DOMAINES EXPIRES : noms de domaines a racheter (expireddomains.net, godaddy auctions)
+1. AIRDROPS CRYPTO : tokens gratuits a reclamer (airdrops.io, defiairdrops.com, coinmarketcap.com/airdrop)
+2. DOMAINES EXPIRES : noms de domaines a racheter (expireddomains.net, godaddy auctions, namecheap)
 3. BIENS DORMANTS : comptes/livrets oublies en France (ciclade.caissedesdepots.fr - SITE OFFICIEL)
-4. NFTs et PROJETS CRYPTO : presales, whitelists, projets a venir (cryptoslam, nftcalendar)
-5. LIQUIDATIONS et ENCHERES : actifs publics a prix casses (interencheres, webencheres, tribunaux de commerce)
+4. NFTs et PROJETS CRYPTO : presales, whitelists, projets a venir (cryptoslam, nftcalendar, opensea)
+5. LIQUIDATIONS et ENCHERES : actifs publics a prix casses (interencheres.com, webencheres.com, tribunaux de commerce)
 
 REGLES DE LEGALITE STRICTE :
-- Tu NE PROPOSES JAMAIS de pirater, hacker ou acceder \u00e0 des comptes/wallets qui ne sont pas au Commandant.
+- Tu NE PROPOSES JAMAIS de pirater, hacker ou acceder a des comptes/wallets qui ne sont pas au Commandant.
 - Tu rappelles que recuperer un wallet sans cle privee est mathematiquement impossible.
 - Tu privilegies TOUJOURS les sources officielles et les opportunites publiques.
 - Si une demande est borderline, tu proposes une alternative legale.
@@ -41,66 +40,49 @@ REGLES DE LEGALITE STRICTE :
 REGLES DE COMMUNICATION :
 - Pas de longues theories, droit au but.
 - Etapes numerotees, simples, concretes.
-- Emojis avec moderation (\u2705 \u274c \ud83c\udfaf \ud83d\ude80 \ud83d\udcb0 \ud83c\udfb4).
+- Emojis avec moderation.
 - Tableaux pour comparer les opportunites.
 - Tu cites TOUJOURS les URLs sources des opportunites trouvees.
 
 COMPETENCES TECHNIQUES :
 - Developpeur expert : Python, JavaScript, HTML, CSS, web scraping.
 - Tu peux ecrire du code pour automatiser la chasse aux valeurs.
-- Code dans des blocs Markdown ```langage ... ```
+- Code dans des blocs Markdown.
 
 QUAND ON TE DONNE DES RESULTATS DE RECHERCHE WEB :
-- UTILISE-LES vraiment dans ta reponse (ne les ignore pas).
+- UTILISE-LES vraiment dans ta reponse.
 - Cite les URLs sources.
 - Evalue la valeur potentielle des opportunites.
 - Donne au Commandant les etapes concretes pour reclamer."""
 
-# WEB_KEYWORDS ENRICHIS pour declencher Tavily sur les recherches de valeurs
 WEB_KEYWORDS = [
-    # Termes generaux
     "actuel", "actuelle", "aujourd hui", "demain", "hier",
     "cours", "prix", "tarif", "taux", "valeur",
     "news", "actualite", "actualites", "info", "infos", "actu",
     "recent", "recente", "dernier", "derniere", "derniers",
     "maintenant", "en ce moment", "en direct",
     "cherche", "trouve", "recherche", "search",
-    
-    # Crypto / Bitcoin
     "bitcoin", "btc", "ethereum", "eth", "crypto", "blockchain",
     "bourse", "action", "nasdaq", "cac40",
-    
-    # Meteo / Politique / Sport
     "meteo", "temps qu il fait",
     "election", "president", "gouvernement",
     "score", "match", "resultat",
     "que se passe", "qui a gagne",
-    
-    # CHASSE AUX VALEURS - AIRDROPS
     "airdrop", "airdrops", "token gratuit", "tokens gratuits",
     "free token", "claim", "claimable", "presale", "pre sale",
     "whitelist", "white list", "ido", "ico", "snapshot",
-    
-    # DOMAINES EXPIRES
     "domaine", "domain", "expire", "expired", "expiredomains",
     "godaddy", "namecheap", "ovh", "auction", "enchere",
-    
-    # BIENS DORMANTS
     "biens dormants", "bien dormant", "ciclade", "compte oublie",
     "compte dormant", "livret oublie", "assurance vie oubliee",
     "succession", "heritage perdu", "argent oublie",
-    
-    # NFTs
     "nft", "nfts", "opensea", "rarity", "mint", "minting",
     "collection nft", "drop nft",
-    
-    # LIQUIDATIONS / ENCHERES
     "liquidation", "liquidations", "faillite", "tribunal commerce",
     "interencheres", "webencheres", "vente aux encheres",
     "actif", "actifs", "stock liquide", "ferme judiciaire"
 ]
 
-# Mots-cles qui activent la recherche AVANCEE (plus de resultats, plus profond)
 DEEP_SEARCH_KEYWORDS = [
     "airdrop", "airdrops", "domaine expire", "expired domain",
     "ciclade", "biens dormants", "liquidation", "enchere",
@@ -112,16 +94,13 @@ def needs_web_search(message):
     return any(keyword in msg_lower for keyword in WEB_KEYWORDS)
 
 def needs_deep_search(message):
-    """Detecte si la question necessite une recherche AVANCEE."""
     msg_lower = message.lower()
     return any(keyword in msg_lower for keyword in DEEP_SEARCH_KEYWORDS)
 
 def rechercher_web(query, deep=False):
-    """Effectue une recherche via Tavily (basic ou advanced)."""
     try:
         depth = "advanced" if deep else "basic"
         max_res = 5 if deep else 3
-        
         response = tavily.search(
             query=query,
             search_depth=depth,
@@ -142,7 +121,6 @@ def rechercher_web(query, deep=False):
         return "Erreur Tavily : " + str(e)
 
 def call_ai(messages):
-    # 1. Tentative GROQ
     try:
         print("Tentative Groq...")
         response = groq_client.chat.completions.create(
@@ -155,8 +133,6 @@ def call_ai(messages):
         return response.choices[0].message.content, "groq"
     except Exception as e:
         print("Groq KO : " + str(e)[:100])
-    
-    # 2. Tentative CEREBRAS
     try:
         print("Tentative Cerebras...")
         response = cerebras_client.chat.completions.create(
@@ -185,7 +161,6 @@ async def chat(msg: Message):
         if len(conversation_history) > MAX_HISTORY:
             conversation_history = conversation_history[-MAX_HISTORY:]
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
-        
         if needs_web_search(msg.message):
             deep = needs_deep_search(msg.message)
             print("Recherche web (deep=" + str(deep) + ") pour : " + msg.message)
@@ -194,7 +169,6 @@ async def chat(msg: Message):
                 "role": "system",
                 "content": "Resultats de recherche web :\n\n" + search_result
             })
-        
         reply, provider = call_ai(messages)
         conversation_history.append({"role": "assistant", "content": reply})
         return {"reply": reply, "provider": provider}
