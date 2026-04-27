@@ -3,14 +3,20 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from groq import Groq
 from tavily import TavilyClient
+from cerebras.cloud.sdk import Cerebras
 import os
 import json
 
 app = FastAPI()
 
-client = Groq(api_key=os.environ["GROQ_API_KEY"])
+# Clients IA (cerveau principal + cerveau de secours)
+groq_client = Groq(api_key=os.environ["GROQ_API_KEY"])
+cerebras_client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
 tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
-MODEL = "llama-3.3-70b-versatile"
+
+# Modèle pour Groq et Cerebras (tous les deux supportent Llama 3.3 70B)
+GROQ_MODEL = "llama-3.3-70b-versatile"
+CEREBRAS_MODEL = "llama-3.3-70b"
 
 SYSTEM_PROMPT = """Tu es NÉO, l'IA souveraine du Commandant.
 
@@ -36,11 +42,10 @@ OUTIL DE RECHERCHE WEB 🌐 :
   * Prix actuels (crypto, bourse, produits)
   * Cours/taux/valeurs en temps réel
   * Météo, sports, élections
-  * Information sur un site web précis
   * Tout ce qui change dans le temps
 - Si tu n'as pas l'info récente, CHERCHE-LA, ne devine pas.
 - Cite TOUJOURS les URLs sources à la fin de ta réponse.
-- Quand tu as les résultats de l'outil, UTILISE-LES vraiment dans ta réponse.
+- Quand tu as les résultats de l'outil, UTILISE-LES vraiment.
 
 MÉMOIRE :
 - Tu te souviens de la conversation en cours."""
@@ -50,13 +55,13 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "rechercher_web",
-            "description": "Cherche des informations récentes sur Internet via Tavily. À utiliser pour toute info qui change dans le temps : actualités, prix actuels, cours boursiers, news, événements récents, météo, etc.",
+            "description": "Cherche des informations récentes sur Internet via Tavily. À utiliser pour toute info qui change dans le temps.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "La requête de recherche (en français ou anglais)"
+                        "description": "La requête de recherche"
                     }
                 },
                 "required": ["query"]
@@ -90,138 +95,64 @@ def rechercher_web(query: str) -> str:
         response = tavily.search(
             query=query,
             search_depth="basic",
-            max_results=5,
+            max_results=3,  # Réduit de 5 à 3 pour économiser des tokens
             include_answer=True
         )
         
-        results_text = f"📊 Résultats pour : {query}\n\n"
+        results_text = f"Résultats pour : {query}\n\n"
         
         if response.get("answer"):
-            results_text += f"💡 Résumé Tavily : {response['answer']}\n\n"
+            results_text += f"Résumé : {response['answer']}\n\n"
         
-        results_text += "🔗 Sources détaillées :\n"
+        results_text += "Sources :\n"
         for i, result in enumerate(response.get("results", []), 1):
             results_text += f"\n[{i}] {result.get('title', 'Sans titre')}\n"
             results_text += f"    URL : {result.get('url', '')}\n"
-            results_text += f"    Contenu : {result.get('content', '')[:400]}...\n"
+            results_text += f"    Contenu : {result.get('content', '')[:200]}...\n"
         
-        # Log pour debug
-        print(f"📥 Tavily a retourné {len(response.get('results', []))} résultats")
-        
+        print(f"📥 Tavily : {len(response.get('results', []))} résultats")
         return results_text
     except Exception as e:
-        error_msg = f"❌ Erreur Tavily : {type(e).__name__} - {str(e)}"
-        print(error_msg)
+        error_msg = f"Erreur Tavily : {str(e)}"
+        print(f"❌ {error_msg}")
         return error_msg
 
-conversation_history = []
-MAX_HISTORY = 20
-
-class Message(BaseModel):
-    message: str
-
-@app.post("/chat")
-async def chat(msg: Message):
-    global conversation_history
+def call_ai(messages, use_tools=True):
+    """
+    Appelle l'IA en cascade : essaie Groq d'abord, puis Cerebras si Groq plante.
+    """
+    # === TENTATIVE 1 : GROQ ===
     try:
-        conversation_history.append({"role": "user", "content": msg.message})
-        if len(conversation_history) > MAX_HISTORY:
-            conversation_history = conversation_history[-MAX_HISTORY:]
+        print("🟢 Tentative Groq...")
+        kwargs = {
+            "model": GROQ_MODEL,
+            "messages": messages,
+            "max_tokens": 4096,
+            "temperature": 0.7,
+        }
+        if use_tools:
+            kwargs["tools"] = TOOLS
+            kwargs["tool_choice"] = "auto"
         
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
-        
-        force_search = needs_web_search(msg.message)
-        tool_choice = "required" if force_search else "auto"
-        
-        response = client.chat.completions.create(
-            model=MODEL,
+        response = groq_client.chat.completions.create(**kwargs)
+        print("✅ Groq a répondu")
+        return response, "groq"
+    except Exception as e:
+        error_str = str(e).lower()
+        # Si erreur de quota Groq, on bascule sur Cerebras
+        if "rate_limit" in error_str or "quota" in error_str or "429" in error_str:
+            print(f"⚠️ Groq saturé, bascule sur Cerebras : {str(e)[:100]}")
+        else:
+            print(f"⚠️ Erreur Groq, bascule sur Cerebras : {str(e)[:100]}")
+    
+    # === TENTATIVE 2 : CEREBRAS ===
+    try:
+        print("🔵 Tentative Cerebras...")
+        # Cerebras ne supporte pas les tools de la même façon, on désactive
+        response = cerebras_client.chat.completions.create(
+            model=CEREBRAS_MODEL,
             messages=messages,
-            tools=TOOLS,
-            tool_choice=tool_choice,
             max_tokens=4096,
             temperature=0.7,
         )
-        
-        response_message = response.choices[0].message
-        tool_calls = response_message.tool_calls
-        
-        if tool_calls:
-            messages.append({
-                "role": "assistant",
-                "content": response_message.content,
-                "tool_calls": [
-                    {
-                        "id": tc.id,
-                        "type": tc.type,
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments
-                        }
-                    } for tc in tool_calls
-                ]
-            })
-            
-            for tool_call in tool_calls:
-                if tool_call.function.name == "rechercher_web":
-                    args = json.loads(tool_call.function.arguments)
-                    print(f"🔍 NÉO recherche : {args['query']}")
-                    result = rechercher_web(args["query"])
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": result
-                    })
-            
-            second_response = client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                max_tokens=4096,
-                temperature=0.7,
-            )
-            
-            reply = second_response.choices[0].message.content
-        else:
-            reply = response_message.content
-        
-        conversation_history.append({"role": "assistant", "content": reply})
-        return {"reply": reply}
-    except Exception as e:
-        return {"reply": f"Erreur : {str(e)}"}
-
-@app.get("/test-tavily")
-async def test_tavily():
-    """Route de diagnostic pour tester Tavily directement."""
-    try:
-        result = tavily.search(
-            query="Bitcoin price today",
-            search_depth="basic",
-            max_results=3,
-            include_answer=True
-        )
-        return {
-            "status": "OK",
-            "answer": result.get("answer", "Pas de answer"),
-            "results_count": len(result.get("results", [])),
-            "first_result": result.get("results", [{}])[0] if result.get("results") else "Aucun résultat",
-            "all_results_titles": [r.get("title", "") for r in result.get("results", [])]
-        }
-    except Exception as e:
-        return {
-            "status": "ERREUR",
-            "error_type": type(e).__name__,
-            "error_message": str(e)
-        }
-
-@app.post("/reset")
-async def reset_conversation():
-    global conversation_history
-    conversation_history = []
-    return {"status": "Mémoire effacée."}
-
-@app.get("/test", response_class=HTMLResponse)
-async def test_page():
-    return open("test.html").read()
-
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    return open("templates/index.html").read()
+        print("✅ Cerebras a
