@@ -7,4 +7,3 @@ cerebras-cloud-sdk
 openai
 flask
 requests
-openai
