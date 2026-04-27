@@ -13,7 +13,7 @@ cerebras_client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
 tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
-CEREBRAS_MODEL = "llama-3.3-70b"
+CEREBRAS_MODEL = "llama3.3-70b"
 
 SYSTEM_PROMPT = "Tu es NEO, l IA souveraine du Commandant. Tu reponds toujours en francais. Tu comprends le langage simple, familier, les fautes d orthographe. Tu es chaleureux, patient et clair. Tu appelles l utilisateur Commandant. Tu vas droit au but, pas de longues theories. Etapes numerotees, simples et concretes. Emojis avec moderation. Tu es developpeur expert : Python, JavaScript, HTML, CSS. Code propre dans des blocs Markdown. Quand on te donne des resultats de recherche web, UTILISE-LES vraiment dans ta reponse et cite les URLs sources."
 
@@ -58,24 +58,29 @@ def rechercher_web(query):
 
 def call_ai(messages):
     try:
+        print("Tentative Groq...")
         response = groq_client.chat.completions.create(
             model=GROQ_MODEL,
             messages=messages,
             max_tokens=4096,
             temperature=0.7,
         )
+        print("Groq OK")
         return response, "groq"
     except Exception as e:
-        print("Groq KO, bascule sur Cerebras")
+        print("Groq KO : " + str(e)[:100])
     try:
+        print("Tentative Cerebras...")
         response = cerebras_client.chat.completions.create(
             model=CEREBRAS_MODEL,
             messages=messages,
             max_tokens=4096,
             temperature=0.7,
         )
+        print("Cerebras OK")
         return response, "cerebras"
     except Exception as e:
+        print("Cerebras KO : " + str(e)[:100])
         raise Exception("Les deux IA ont plante : " + str(e))
 
 conversation_history = []
