@@ -13,7 +13,7 @@ cerebras_client = Cerebras(api_key=os.environ["CEREBRAS_API_KEY"])
 tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
-CEREBRAS_MODEL = "llama3.3-70b"
+CEREBRAS_MODEL = "llama3.1-8b"
 
 SYSTEM_PROMPT = "Tu es NEO, l IA souveraine du Commandant. Tu reponds toujours en francais. Tu comprends le langage simple, familier, les fautes d orthographe. Tu es chaleureux, patient et clair. Tu appelles l utilisateur Commandant. Tu vas droit au but, pas de longues theories. Etapes numerotees, simples et concretes. Emojis avec moderation. Tu es developpeur expert : Python, JavaScript, HTML, CSS. Code propre dans des blocs Markdown. Quand on te donne des resultats de recherche web, UTILISE-LES vraiment dans ta reponse et cite les URLs sources."
 
@@ -132,6 +132,14 @@ async def test_ai():
     except Exception as e:
         results["cerebras"] = {"status": "ERREUR", "error": str(e)}
     return results
+
+@app.get("/cerebras-models")
+async def cerebras_models():
+    try:
+        models = cerebras_client.models.list()
+        return {"status": "OK", "models": [m.id for m in models.data]}
+    except Exception as e:
+        return {"status": "ERREUR", "error": str(e)}
 
 @app.post("/reset")
 async def reset_conversation():
