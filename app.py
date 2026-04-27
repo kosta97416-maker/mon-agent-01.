@@ -5,7 +5,6 @@ from groq import Groq
 from tavily import TavilyClient
 from cerebras.cloud.sdk import Cerebras
 import os
-import json
 
 app = FastAPI()
 
@@ -53,8 +52,88 @@ def rechercher_web(query):
             results_text += "\n[" + str(i) + "] " + result.get("title", "Sans titre") + "\n"
             results_text += "    URL : " + result.get("url", "") + "\n"
             results_text += "    Contenu : " + result.get("content", "")[:200] + "...\n"
-        print("Tavily : " + str(len(response.get("results", []))) + " resultats")
         return results_text
     except Exception as e:
-        error_msg = "Erreur Tavily : " + str(e)
-        print("X " + error_msg)
+        return "Erreur Tavily : " + str(e)
+
+def call_ai(messages):
+    try:
+        response = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=messages,
+            max_tokens=4096,
+            temperature=0.7,
+        )
+        return response, "groq"
+    except Exception as e:
+        print("Groq KO, bascule sur Cerebras")
+    try:
+        response = cerebras_client.chat.completions.create(
+            model=CEREBRAS_MODEL,
+            messages=messages,
+            max_tokens=4096,
+            temperature=0.7,
+        )
+        return response, "cerebras"
+    except Exception as e:
+        raise Exception("Les deux IA ont plante : " + str(e))
+
+conversation_history = []
+MAX_HISTORY = 10
+
+class Message(BaseModel):
+    message: str
+
+@app.post("/chat")
+async def chat(msg: Message):
+    global conversation_history
+    try:
+        conversation_history.append({"role": "user", "content": msg.message})
+        if len(conversation_history) > MAX_HISTORY:
+            conversation_history = conversation_history[-MAX_HISTORY:]
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
+        if needs_web_search(msg.message):
+            search_result = rechercher_web(msg.message)
+            messages.append({
+                "role": "system",
+                "content": "Resultats de recherche web :\n\n" + search_result
+            })
+        response, provider = call_ai(messages)
+        reply = response.choices[0].message.content
+        conversation_history.append({"role": "assistant", "content": reply})
+        return {"reply": reply, "provider": provider}
+    except Exception as e:
+        return {"reply": "Erreur : " + str(e)}
+
+@app.get("/test-ai")
+async def test_ai():
+    results = {}
+    try:
+        r = groq_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": "Dis bonjour"}],
+            max_tokens=50
+        )
+        results["groq"] = {"status": "OK", "response": r.choices[0].message.content}
+    except Exception as e:
+        results["groq"] = {"status": "ERREUR", "error": str(e)}
+    try:
+        r = cerebras_client.chat.completions.create(
+            model=CEREBRAS_MODEL,
+            messages=[{"role": "user", "content": "Dis bonjour"}],
+            max_tokens=50
+        )
+        results["cerebras"] = {"status": "OK", "response": r.choices[0].message.content}
+    except Exception as e:
+        results["cerebras"] = {"status": "ERREUR", "error": str(e)}
+    return results
+
+@app.post("/reset")
+async def reset_conversation():
+    global conversation_history
+    conversation_history = []
+    return {"status": "Memoire effacee."}
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return open("templates/index.html").read()
