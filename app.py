@@ -5,7 +5,6 @@ from groq import Groq
 from tavily import TavilyClient
 import os
 import json
-import re
 
 app = FastAPI()
 
@@ -41,6 +40,7 @@ OUTIL DE RECHERCHE WEB 🌐 :
   * Tout ce qui change dans le temps
 - Si tu n'as pas l'info récente, CHERCHE-LA, ne devine pas.
 - Cite TOUJOURS les URLs sources à la fin de ta réponse.
+- Quand tu as les résultats de l'outil, UTILISE-LES vraiment dans ta réponse.
 
 MÉMOIRE :
 - Tu te souviens de la conversation en cours."""
@@ -65,7 +65,6 @@ TOOLS = [
     }
 ]
 
-# Mots-clés qui DÉCLENCHENT obligatoirement une recherche web
 WEB_KEYWORDS = [
     "actuel", "actuelle", "aujourd'hui", "ajourd'hui", "demain", "hier",
     "cours", "prix", "tarif", "taux", "valeur",
@@ -82,7 +81,6 @@ WEB_KEYWORDS = [
 ]
 
 def needs_web_search(message: str) -> bool:
-    """Détecte si la question nécessite une recherche web."""
     msg_lower = message.lower()
     return any(keyword in msg_lower for keyword in WEB_KEYWORDS)
 
@@ -107,9 +105,14 @@ def rechercher_web(query: str) -> str:
             results_text += f"    URL : {result.get('url', '')}\n"
             results_text += f"    Contenu : {result.get('content', '')[:400]}...\n"
         
+        # Log pour debug
+        print(f"📥 Tavily a retourné {len(response.get('results', []))} résultats")
+        
         return results_text
     except Exception as e:
-        return f"❌ Erreur Tavily : {str(e)}"
+        error_msg = f"❌ Erreur Tavily : {type(e).__name__} - {str(e)}"
+        print(error_msg)
+        return error_msg
 
 conversation_history = []
 MAX_HISTORY = 20
@@ -127,7 +130,6 @@ async def chat(msg: Message):
         
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
         
-        # Si la question nécessite une recherche web, on FORCE l'outil
         force_search = needs_web_search(msg.message)
         tool_choice = "required" if force_search else "auto"
         
@@ -185,6 +187,30 @@ async def chat(msg: Message):
         return {"reply": reply}
     except Exception as e:
         return {"reply": f"Erreur : {str(e)}"}
+
+@app.get("/test-tavily")
+async def test_tavily():
+    """Route de diagnostic pour tester Tavily directement."""
+    try:
+        result = tavily.search(
+            query="Bitcoin price today",
+            search_depth="basic",
+            max_results=3,
+            include_answer=True
+        )
+        return {
+            "status": "OK",
+            "answer": result.get("answer", "Pas de answer"),
+            "results_count": len(result.get("results", [])),
+            "first_result": result.get("results", [{}])[0] if result.get("results") else "Aucun résultat",
+            "all_results_titles": [r.get("title", "") for r in result.get("results", [])]
+        }
+    except Exception as e:
+        return {
+            "status": "ERREUR",
+            "error_type": type(e).__name__,
+            "error_message": str(e)
+        }
 
 @app.post("/reset")
 async def reset_conversation():
