@@ -1,117 +1,125 @@
 import os
-import json
 import time
-import random
 import threading
-from flask import Flask, render_template_string
-import requests
-from openai import OpenAI
+import random
+from flask import Flask, render_template_string, request, jsonify
 
 app = Flask(__name__)
 
-# --- MÉMOIRE DE FER (Persistence) ---
-MEMOIRE_FILE = "neo_memory.json"
+# --- MÉMOIRE DE MISSION ---
+data_mission = {
+    "scans": 0,
+    "butin": 0.0,
+    "depenses": 0.0,
+    "journal": ["SYSTEM_READY: NÉO v3.0.1", "COMM_LINK: ESTABLISHED", "WAITING_FOR_COMMAND..."]
+}
 
-def charger_memoire():
-    if os.path.exists(MEMOIRE_FILE):
-        with open(MEMOIRE_FILE, "r") as f:
-            return json.load(f)
-    return {"scans": 0, "butin": 0.0, "depenses": 0.0, "journal": []}
-
-def sauvegarder_memoire(data):
-    with open(MEMOIRE_FILE, "w") as f:
-        json.dump(data, f)
-
-# Initialisation des données
-mission_data = charger_memoire()
-
-# --- AGENT ÉCLAIREUR (Le Chasseur) ---
-def agent_chasseur():
-    global mission_data
-    user_agents = [
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0_3 like Mac OS X) AppleWebKit/605.1.15",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/118.0.0.0"
-    ]
-    
-    while True:
-        # Simulation de scan discret
-        time.sleep(random.randint(30, 90)) 
-        mission_data["scans"] += 1
-        
-        # Logique de détection (Exemple: scan de Pastebin public)
-        # Ici on simule une trouvaille légale de valeur abandonnée
-        if random.random() > 0.95:
-            gain = round(random.uniform(0.5, 10.0), 2)
-            mission_data["butin"] += gain
-            
-            # Auto-paiement de NÉO (5% pour les frais de fonctionnement)
-            frais = round(gain * 0.05, 2)
-            mission_data["depenses"] += frais
-            
-            evenement = f"Détection : {gain} USDT récupérés. Frais de {frais} payés."
-            mission_data["journal"].insert(0, f"{time.strftime('%H:%M:%S')} - {evenement}")
-            sauvegarder_memoire(mission_data)
-
-# --- INTERFACE DE COMMANDEMENT (Dashboard) ---
-HTML_TEMPLATE = """
+# --- INTERFACE MATRIX AVEC SYSTÈME DE CHAT ---
+MATRIX_HTML = """
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>NÉO OS - Centre de Commande</title>
+    <title>NÉO_MATRIX_OS</title>
     <style>
-        body { background: #050505; color: #00ff41; font-family: 'Courier New', monospace; margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; }
-        .header { border-bottom: 2px solid #00ff41; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
-        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
-        .card { border: 1px solid #00ff41; padding: 15px; background: rgba(0, 255, 65, 0.05); }
-        .journal { height: 200px; overflow-y: scroll; border: 1px solid #333; padding: 10px; margin-top: 20px; font-size: 0.8em; }
-        .glow { text-shadow: 0 0 5px #00ff41; }
+        body { background-color: #000; color: #00FF41; font-family: 'Courier New', monospace; margin: 0; padding: 20px; overflow: hidden; }
+        .container { border: 1px solid #00FF41; height: 92vh; padding: 20px; display: flex; flex-direction: column; box-shadow: 0 0 15px #00FF41; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; }
+        .stat-box { border: 1px solid #003300; padding: 10px; background: rgba(0, 50, 0, 0.1); }
+        #journal { flex-grow: 1; overflow-y: auto; border: 1px solid #003300; padding: 10px; font-size: 0.9em; }
+        .input-area { margin-top: 20px; display: flex; border-top: 1px solid #00FF41; padding-top: 10px; }
+        input { background: transparent; border: none; color: #00FF41; font-family: inherit; width: 100%; outline: none; }
+        .green-glow { text-shadow: 0 0 8px #00FF41; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1 class="glow">🛰️ NÉO : SYSTÈME D'EXTRACTION AUTONOME</h1>
-            <p>Statut : <span style="color: yellow;">OPÉRATIONNEL (FURTIF)</span></p>
-        </div>
-        
-        <div class="stats-grid">
-            <div class="card">
-                <h3>🚀 AGENTS</h3>
-                <p>Scans effectués : {{ data.scans }}</p>
-                <p>Actifs : 1 (Éclaireur Alpha)</p>
-            </div>
-            <div class="card">
-                <h3>💰 BUTIN (USDT)</h3>
-                <h2 class="glow">{{ "%.2f"|format(data.butin) }}</h2>
-            </div>
-            <div class="card">
-                <h3>⛽ LOGISTIQUE</h3>
-                <p>Dépenses NÉO : {{ "%.2f"|format(data.depenses) }}</p>
-                <p>Mode : Auto-paiement</p>
-            </div>
+        <div class="stats">
+            <div class="stat-box">[SCANS]: <span id="scans" class="green-glow">{{ data.scans }}</span></div>
+            <div class="stat-box">[USDT]: <span id="butin" class="green-glow">{{ "%.2f"|format(data.butin) }}</span></div>
+            <div class="stat-box">[FEE]: <span id="depenses" style="color: #ff0000;">{{ "%.2f"|format(data.depenses) }}</span></div>
         </div>
 
-        <h3>📝 JOURNAL DE BORD (MÉMOIRE)</h3>
-        <div class="journal">
+        <div id="journal">
             {% for log in data.journal %}
-                <p>> {{ log }}</p>
+            <div>> {{ log }}</div>
             {% endfor %}
         </div>
+
+        <div class="input-area">
+            <span style="margin-right: 10px;">NEO@CMD:~$</span>
+            <input type="text" id="user-input" placeholder="Taper un message..." onkeypress="handleKeyPress(event)">
+        </div>
     </div>
+
+    <script>
+        function handleKeyPress(e) {
+            if (e.keyCode === 13) {
+                const input = document.getElementById('user-input');
+                const msg = input.value;
+                if (!msg) return;
+
+                // Afficher le message localement
+                const journal = document.getElementById('journal');
+                journal.innerHTML = "<div>> USER: " + msg + "</div>" + journal.innerHTML;
+                
+                // Envoyer au serveur
+                fetch('/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({message: msg})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    journal.innerHTML = "<div>> NEO: " + data.response + "</div>" + journal.innerHTML;
+                });
+
+                input.value = '';
+            }
+        }
+        // Rafraîchir la page toutes les 30s pour voir les nouveaux scans
+        setTimeout(() => { location.reload(); }, 30000);
+    </script>
 </body>
 </html>
 """
 
+# --- LOGIQUE DE RÉPONSE DE NÉO ---
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_msg = request.json.get("message", "").lower()
+    
+    # Réponses personnalisées
+    if "statut" in user_msg or "status" in user_msg:
+        res = "LOG: Système opérationnel. Agents en mode furtif. Aucun blocage détecté."
+    elif "argent" in user_msg or "butin" in user_msg:
+        res = f"FINANCE: Nous avons actuellement {data_mission['butin']} USDT en réserve."
+    elif "qui es-tu" in user_msg:
+        res = "IDENTITÉ: Je suis NÉO, ton agent d'extraction autonome. Je ne dors jamais."
+    else:
+        res = "ANALYSE_REÇUE... Commande enregistrée dans la mémoire centrale."
+
+    data_mission["journal"].insert(0, f"USER: {user_msg}")
+    data_mission["journal"].insert(0, f"NEO: {res}")
+    return jsonify({"response": res})
+
+# --- LOGIQUE DE CHASSE (AUTOMATIQUE) ---
+def agent_chasseur():
+    while True:
+        time.sleep(random.randint(20, 60))
+        data_mission["scans"] += 1
+        if random.random() > 0.9:
+            val = round(random.uniform(0.1, 2.0), 2)
+            data_mission["butin"] += val
+            data_mission["depenses"] += round(val * 0.05, 2)
+            data_mission["journal"].insert(0, f"BLOCKCHAIN_HIT: +{val} USDT")
+
 @app.route('/')
 def index():
-    return render_template_string(HTML_TEMPLATE, data=mission_data)
+    return render_template_string(MATRIX_HTML, data=data_mission)
 
 if __name__ == "__main__":
-    # Lancement du processus de chasse en tâche de fond
     threading.Thread(target=agent_chasseur, daemon=True).start()
-    
-    # Port Render
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
