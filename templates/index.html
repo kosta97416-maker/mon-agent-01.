@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NÉO - Interface Souveraine</title>
+    <title>NÉO PILOT - Hunter Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;500;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
     <style>
-        body { font-family: 'Space Grotesk', sans-serif; background-color: #050505; }
+        body { font-family: 'Space Grotesk', sans-serif; background: #050505; }
         .mono { font-family: 'Fira Code', monospace; }
         .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.2); }
         .terminal-scroll::-webkit-scrollbar { width: 4px; }
         .terminal-scroll::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 10px; }
         .typing-dots span { animation: blink 1.4s infinite; }
@@ -23,85 +22,183 @@
         .neo-reply h1, .neo-reply h2, .neo-reply h3 { font-weight: bold; margin: 8px 0; color: #60a5fa; }
         .neo-reply p { margin: 6px 0; }
         .neo-reply ul, .neo-reply ol { padding-left: 20px; margin: 8px 0; }
-        .neo-reply li { margin: 3px 0; }
         .neo-reply strong { color: #93c5fd; }
-        .neo-reply em { color: #cbd5e1; }
         .neo-reply code:not(pre code) { background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.85em; }
         .neo-reply pre { background: #1e293b !important; border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 8px; padding: 12px; overflow-x: auto; margin: 10px 0; font-family: 'Fira Code', monospace; font-size: 0.85em; position: relative; }
         .neo-reply pre code { background: transparent !important; padding: 0; color: #e2e8f0; }
-        .copy-btn { position: absolute; top: 8px; right: 8px; background: #3b82f6; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 10px; cursor: pointer; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase; font-weight: bold; }
-        .copy-btn:hover { background: #2563eb; }
-        .copy-btn.copied { background: #10b981; }
+        .copy-btn { position: absolute; top: 8px; right: 8px; background: #3b82f6; color: white; border: none; padding: 4px 10px; border-radius: 4px; font-size: 10px; cursor: pointer; font-weight: bold; }
+        .opp-card { transition: all 0.3s ease; }
+        .opp-card:hover { transform: translateY(-2px); border-color: #3b82f6; }
+        .pulse-dot { animation: pulseDot 2s infinite; }
+        @keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
     </style>
 </head>
 <body class="text-slate-200 h-screen overflow-hidden flex flex-col">
 
-    <nav class="h-16 border-b border-white/5 flex items-center justify-between px-8 glass z-50">
-        <div class="flex items-center space-x-4">
-            <div class="w-3 h-3 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_#3b82f6]"></div>
-            <h1 class="text-xl font-bold tracking-tighter uppercase italic text-blue-500">NÉO <span class="text-white">PILOT</span></h1>
-        </div>
-        <div class="flex items-center space-x-6">
-            <button onclick="resetConversation()" class="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-red-400 italic px-3 py-1.5 rounded-full border border-white/10 hover:border-red-400 transition-all">
-                🗑️ Nouvelle Conv.
-            </button>
-            <div class="text-right">
-                <p class="text-[9px] text-slate-500 uppercase leading-none">Réseau</p>
-                <p class="text-xs font-bold text-green-400 mono">CHIFFRÉ_DISCRET</p>
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 bg-black z-50 flex items-center justify-center">
+        <div class="glass rounded-3xl p-10 max-w-md w-full mx-4">
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-600 flex items-center justify-center">
+                    <span class="text-3xl">🛡️</span>
+                </div>
+                <h1 class="text-3xl font-bold tracking-tighter uppercase italic text-blue-500 mb-2">NÉO <span class="text-white">PILOT</span></h1>
+                <p class="text-xs text-slate-400 mono">SECURED ACCESS REQUIRED</p>
+            </div>
+            <div class="space-y-4">
+                <input id="password-input" type="password" placeholder="Mot de passe Commandant"
+                    class="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500 text-sm">
+                <button id="login-btn" onclick="login()"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold uppercase tracking-tighter italic transition-all">
+                    Authentifier
+                </button>
+                <p id="login-error" class="text-red-500 text-xs text-center hidden">⚠️ Mot de passe incorrect</p>
             </div>
         </div>
-    </nav>
+    </div>
 
-    <div class="flex flex-1 overflow-hidden">
-        <main class="flex-1 flex flex-col relative">
-            <div id="chat-box" class="flex-1 overflow-y-auto p-10 space-y-6 terminal-scroll">
-                <div class="flex flex-col space-y-2 max-w-3xl">
-                    <span class="text-[10px] mono text-blue-500 font-bold">NÉO_CORE</span>
-                    <div class="p-5 rounded-2xl rounded-tl-none glass border-l-2 border-l-blue-500">
-                        <p class="text-sm leading-relaxed italic">Commandant, je suis à votre écoute. Donnez vos ordres pour la chasse aux valeurs.</p>
+    <!-- MAIN APP (caché tant que pas connecté) -->
+    <div id="main-app" class="h-full flex flex-col hidden">
+
+        <!-- TOP NAV -->
+        <nav class="h-16 border-b border-white/5 flex items-center justify-between px-8 glass z-40">
+            <div class="flex items-center space-x-4">
+                <div class="w-3 h-3 bg-blue-500 rounded-full pulse-dot shadow-[0_0_10px_#3b82f6]"></div>
+                <h1 class="text-xl font-bold tracking-tighter uppercase italic text-blue-500">NÉO <span class="text-white">PILOT</span></h1>
+                <span class="text-[10px] mono text-slate-500 uppercase">Hunter Pro</span>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="voice-btn" onclick="toggleVoice()" class="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-blue-400 italic px-3 py-1.5 rounded-full border border-white/10 hover:border-blue-400 transition-all">
+                    🔊 Voix OFF
+                </button>
+                <button onclick="scanNow()" class="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-green-400 italic px-3 py-1.5 rounded-full border border-white/10 hover:border-green-400 transition-all">
+                    🔍 Scan
+                </button>
+                <button onclick="resetConversation()" class="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-red-400 italic px-3 py-1.5 rounded-full border border-white/10 hover:border-red-400 transition-all">
+                    🗑️ Reset
+                </button>
+                <button onclick="logout()" class="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-orange-400 italic px-3 py-1.5 rounded-full border border-white/10 hover:border-orange-400 transition-all">
+                    🚪 Déconnexion
+                </button>
+            </div>
+        </nav>
+
+        <!-- MAIN LAYOUT -->
+        <div class="flex flex-1 overflow-hidden">
+
+            <!-- CHAT (gauche, 60%) -->
+            <main class="flex-1 flex flex-col relative border-r border-white/5">
+                <div id="chat-box" class="flex-1 overflow-y-auto p-8 space-y-6 terminal-scroll">
+                    <div class="flex flex-col space-y-2 max-w-3xl">
+                        <span class="text-[10px] mono text-blue-500 font-bold">NÉO_CORE</span>
+                        <div class="p-5 rounded-2xl rounded-tl-none glass border-l-2 border-l-blue-500">
+                            <p class="text-sm leading-relaxed italic">Commandant, NÉO PILOT v2 opérationnel. Chasseur de valeurs activé. Donnez vos ordres ou cliquez sur "Scan" pour détecter de nouvelles opportunités.</p>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <div class="p-8">
-                <div class="max-w-4xl mx-auto">
+                <div class="p-6 border-t border-white/5">
                     <div class="relative group">
                         <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-10 group-focus-within:opacity-30 transition duration-1000"></div>
                         <div class="relative flex items-center glass rounded-2xl p-2">
-                            <button id="mic-btn" onclick="toggleMic()" class="p-3 hover:bg-white/5 rounded-xl transition-all group">
-                                <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-500 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <button id="mic-btn" onclick="toggleMic()" class="p-3 hover:bg-white/5 rounded-xl transition-all">
+                                <svg id="mic-icon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-500 hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                                 </svg>
                             </button>
                             <input id="user-input" type="text" 
-                                   class="flex-1 bg-transparent border-none py-4 px-4 text-white focus:outline-none placeholder:text-slate-600 text-sm" 
-                                   placeholder="Parlez ou tapez un ordre...">
+                                class="flex-1 bg-transparent border-none py-4 px-4 text-white focus:outline-none placeholder:text-slate-600 text-sm" 
+                                placeholder="Parlez ou tapez un ordre...">
                             <button id="send-btn" onclick="envoyerOrdre()" 
-                                    class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold transition-all active:scale-95 shadow-lg shadow-blue-900/20 uppercase tracking-tighter italic">
+                                class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold transition-all uppercase tracking-tighter italic text-sm">
                                 Exécuter
                             </button>
                         </div>
                     </div>
                 </div>
-            </div>
-        </main>
+            </main>
+
+            <!-- DASHBOARD (droite, 40%) -->
+            <aside class="w-[480px] flex flex-col bg-slate-950/50 overflow-hidden">
+                <div class="p-6 border-b border-white/5">
+                    <h2 class="text-sm font-bold uppercase tracking-widest text-blue-500 italic">📊 OPPORTUNITÉS</h2>
+                    <p class="text-[10px] text-slate-500 mono mt-1" id="last-scan-info">Pas encore scanné. Cliquez 🔍 Scan</p>
+                </div>
+                <div id="opportunities-container" class="flex-1 overflow-y-auto p-4 space-y-3 terminal-scroll">
+                    <div class="text-center text-slate-600 text-xs italic mt-10">Aucune opportunité chargée.<br>Cliquez sur "🔍 Scan" en haut.</div>
+                </div>
+            </aside>
+        </div>
     </div>
 
     <script>
-        const chatBox = document.getElementById('chat-box');
-        const userInput = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
+        let neoPassword = localStorage.getItem('neo_password') || '';
+        let voiceEnabled = false;
+        const synth = window.speechSynthesis;
 
+        // === LOGIN ===
+        async function login() {
+            const password = document.getElementById('password-input').value;
+            if (!password) return;
+            try {
+                const res = await fetch('/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: password })
+                });
+                if (res.ok) {
+                    neoPassword = password;
+                    localStorage.setItem('neo_password', password);
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('main-app').classList.remove('hidden');
+                    document.getElementById('login-error').classList.add('hidden');
+                } else {
+                    document.getElementById('login-error').classList.remove('hidden');
+                }
+            } catch (e) {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('neo_password');
+            location.reload();
+        }
+
+        // Auto-login si mot de passe sauvegardé
+        if (neoPassword) {
+            (async () => {
+                try {
+                    const res = await fetch('/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: neoPassword })
+                    });
+                    if (res.ok) {
+                        document.getElementById('login-screen').classList.add('hidden');
+                        document.getElementById('main-app').classList.remove('hidden');
+                    }
+                } catch (e) { }
+            })();
+        }
+
+        document.getElementById('password-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') login();
+        });
+
+        // === MARKDOWN ===
         marked.setOptions({
             highlight: function(code, lang) {
-                if (lang && hljs.getLanguage(lang)) {
-                    return hljs.highlight(code, { language: lang }).value;
-                }
+                if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value;
                 return hljs.highlightAuto(code).value;
             },
             breaks: true
         });
 
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        // === RECONNAISSANCE VOCALE ===
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
         let isListening = false;
@@ -141,6 +238,40 @@
             userInput.placeholder = "Parlez ou tapez un ordre...";
         }
 
+        // === SYNTHÈSE VOCALE ===
+        function toggleVoice() {
+            voiceEnabled = !voiceEnabled;
+            const btn = document.getElementById('voice-btn');
+            if (voiceEnabled) {
+                btn.textContent = "🔊 Voix ON";
+                btn.classList.remove('text-slate-400');
+                btn.classList.add('text-blue-400');
+            } else {
+                btn.textContent = "🔊 Voix OFF";
+                btn.classList.add('text-slate-400');
+                btn.classList.remove('text-blue-400');
+                synth.cancel();
+            }
+        }
+
+        function speakText(text) {
+            if (!voiceEnabled || !synth) return;
+            const cleanText = text
+                .replace(/```[\s\S]*?```/g, ' bloc de code ')
+                .replace(/[*_~`#]/g, '')
+                .replace(/https?:\/\/\S+/g, ' lien ')
+                .replace(/\s+/g, ' ').trim();
+            synth.cancel();
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.lang = 'fr-FR';
+            utterance.rate = 1.0;
+            const voices = synth.getVoices();
+            const frenchVoice = voices.find(v => v.lang.startsWith('fr'));
+            if (frenchVoice) utterance.voice = frenchVoice;
+            synth.speak(utterance);
+        }
+
+        // === CHAT ===
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -163,15 +294,13 @@
         function appendNeoMsg(text) {
             const div = document.createElement('div');
             div.className = "flex flex-col space-y-2 max-w-3xl";
-            const htmlContent = marked.parse(text);
             div.innerHTML = `
                 <span class="text-[10px] mono text-blue-500 font-bold">NÉO_PILOT</span>
                 <div class="p-5 rounded-2xl glass border-l-2 border-l-blue-500 rounded-tl-none">
-                    <div class="text-sm leading-relaxed neo-reply">${htmlContent}</div>
+                    <div class="text-sm leading-relaxed neo-reply">${marked.parse(text)}</div>
                 </div>
             `;
             chatBox.appendChild(div);
-            
             div.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
                 const pre = block.parentElement;
@@ -181,16 +310,11 @@
                 btn.onclick = () => {
                     navigator.clipboard.writeText(block.textContent);
                     btn.textContent = 'Copié ✓';
-                    btn.classList.add('copied');
-                    setTimeout(() => {
-                        btn.textContent = 'Copier';
-                        btn.classList.remove('copied');
-                    }, 2000);
                 };
                 pre.appendChild(btn);
             });
-            
             chatBox.scrollTop = chatBox.scrollHeight;
+            speakText(text);
         }
 
         function appendTyping() {
@@ -198,4 +322,136 @@
             div.className = "flex flex-col space-y-2 max-w-2xl";
             div.id = "typing-indicator";
             div.innerHTML = `
-                <span class="text-[10p
+                <span class="text-[10px] mono text-blue-500 font-bold">NÉO_PILOT</span>
+                <div class="p-5 rounded-2xl glass border-l-2 border-l-blue-500 rounded-tl-none">
+                    <p class="text-sm leading-relaxed typing-dots"><span>●</span> <span>●</span> <span>●</span></p>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function removeTyping() {
+            const t = document.getElementById('typing-indicator');
+            if (t) t.remove();
+        }
+
+        async function envoyerOrdre() {
+            const msg = userInput.value.trim();
+            if (!msg) return;
+            appendUserMsg(msg);
+            userInput.value = "";
+            sendBtn.disabled = true;
+            appendTyping();
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Neo-Password': neoPassword },
+                    body: JSON.stringify({ message: msg })
+                });
+                const data = await res.json();
+                removeTyping();
+                appendNeoMsg(data.reply);
+            } catch (e) {
+                removeTyping();
+                appendNeoMsg("**Erreur :** " + e.message);
+            } finally {
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        async function resetConversation() {
+            if (!confirm("Effacer la mémoire de NÉO ?")) return;
+            try {
+                await fetch('/reset', {
+                    method: 'POST',
+                    headers: { 'X-Neo-Password': neoPassword }
+                });
+                chatBox.innerHTML = `
+                    <div class="flex flex-col space-y-2 max-w-3xl">
+                        <span class="text-[10px] mono text-blue-500 font-bold">NÉO_CORE</span>
+                        <div class="p-5 rounded-2xl rounded-tl-none glass border-l-2 border-l-blue-500">
+                            <p class="text-sm leading-relaxed italic">Mémoire effacée, Commandant.</p>
+                        </div>
+                    </div>
+                `;
+            } catch (e) {
+                alert("Erreur : " + e.message);
+            }
+        }
+
+        // === SCAN OPPORTUNITÉS ===
+        const CATEGORY_ICONS = {
+            airdrops: { icon: '🪂', color: 'blue', label: 'Airdrops Crypto' },
+            bug_bounties: { icon: '💼', color: 'green', label: 'Bug Bounties' },
+            concours: { icon: '🎯', color: 'yellow', label: 'Concours' },
+            subventions: { icon: '🎁', color: 'purple', label: 'Subventions' },
+            biens_dormants: { icon: '🏛️', color: 'orange', label: 'Biens Dormants' }
+        };
+
+        async function scanNow() {
+            const container = document.getElementById('opportunities-container');
+            const info = document.getElementById('last-scan-info');
+            container.innerHTML = '<div class="text-center text-blue-400 text-xs italic mt-10 typing-dots"><span>●</span> <span>●</span> <span>●</span> Scan en cours...</div>';
+            info.textContent = 'Scan en cours...';
+            try {
+                const res = await fetch('/scan', {
+                    method: 'POST',
+                    headers: { 'X-Neo-Password': neoPassword }
+                });
+                const data = await res.json();
+                renderOpportunities(data);
+                info.textContent = 'Dernier scan : ' + new Date().toLocaleTimeString('fr-FR');
+            } catch (e) {
+                container.innerHTML = '<div class="text-center text-red-400 text-xs italic mt-10">Erreur scan : ' + e.message + '</div>';
+            }
+        }
+
+        function renderOpportunities(data) {
+            const container = document.getElementById('opportunities-container');
+            container.innerHTML = '';
+            const categories = ['airdrops', 'bug_bounties', 'concours', 'subventions', 'biens_dormants'];
+            for (const cat of categories) {
+                const items = data[cat] || [];
+                if (items.length === 0) continue;
+                const meta = CATEGORY_ICONS[cat];
+                const section = document.createElement('div');
+                section.className = 'mb-4';
+                section.innerHTML = `<h3 class="text-xs font-bold uppercase tracking-widest text-${meta.color}-400 mb-2 italic">${meta.icon} ${meta.label}</h3>`;
+                for (const opp of items) {
+                    const card = document.createElement('div');
+                    card.className = 'opp-card glass rounded-xl p-3 mb-2 cursor-pointer';
+                    card.innerHTML = `
+                        <h4 class="text-xs font-bold text-white mb-1">${escapeHtml(opp.title.substring(0, 70))}</h4>
+                        <p class="text-[10px] text-slate-400 mb-2">${escapeHtml(opp.summary.substring(0, 100))}...</p>
+                        <a href="${opp.url}" target="_blank" class="text-[10px] text-blue-400 hover:text-blue-300 mono">→ Ouvrir source</a>
+                    `;
+                    section.appendChild(card);
+                }
+                container.appendChild(section);
+            }
+        }
+
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') envoyerOrdre(); });
+
+        // Charge les opportunités au démarrage
+        (async () => {
+            if (neoPassword) {
+                try {
+                    const res = await fetch('/opportunities', {
+                        headers: { 'X-Neo-Password': neoPassword }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.last_update) {
+                            renderOpportunities(data);
+                            document.getElementById('last-scan-info').textContent = 'Dernier scan : ' + new Date(data.last_update).toLocaleTimeString('fr-FR');
+                        }
+                    }
+                } catch (e) { }
+            }
+        })();
+    </script>
+</body>
+</html>
