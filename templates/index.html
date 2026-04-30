@@ -2,106 +2,82 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NEO – Command Center</title>
   <style>
     body { background:#111; color:#eee; font-family:sans-serif; padding:20px; display:flex; flex-direction:column; align-items:center; }
-    textarea { width:100%; max-width:700px; height:100px; background:#222; color:white; border:1px solid #444; padding:10px; margin-bottom:10px; }
+    textarea { width:100%; max-width:700px; height:80px; background:#222; color:white; border:1px solid #444; padding:10px; margin-bottom:10px; }
     button { padding:10px 20px; margin:5px; background:#0d6efd; color:white; border:none; cursor:pointer; border-radius:5px; }
-    #chatbox, #walletbox { width:100%; max-width:700px; background:#1a1a1a; padding:15px; margin-top:20px; border-radius:8px; }
-    #preview-frame { width:100%; height:500px; border:2px solid #333; margin-top:10px; background:white; }
-    .row { display:flex; gap:10px; flex-wrap:wrap; }
+    #reply-box { width:100%; max-width:700px; background:#1a1a1a; padding:15px; margin-top:20px; border-radius:8px; white-space:pre-wrap; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+    iframe { width:100%; max-width:700px; height:500px; border:2px solid #333; margin-top:10px; background:white; display:none; }
   </style>
 </head>
 <body>
-<h1>NEO – Command Center</h1>
-<textarea id="prompt" placeholder="Parle à Neo... (ex : crée un site vitrine pour un plombier, quel est mon solde ?, scan les airdrops)"></textarea>
+<h1>🚀 NEO – Command Center</h1>
+<textarea id="prompt" placeholder="Parle à Neo... (ex : crée un site vitrine pour un plombier, scan les airdrops)"></textarea>
 <button onclick="sendChat()">Envoyer</button>
 
-<div id="chatbox">
-  <div id="reply">Réponse ici</div>
-  <iframe id="preview-frame" style="display:none;"></iframe>
-</div>
+<div id="reply-box">Appuyez sur Envoyer pour parler à Neo.</div>
+<iframe id="preview-frame"></iframe>
 
 <div class="row">
-  <button onclick="showWallet()">💰 Wallet</button>
+  <button onclick="resetMemory()">🧹 Reset Mémoire</button>
   <button onclick="scanOpps()">🔍 Scan Opportunités</button>
-  <button onclick="resetChat()">🧹 Reset Mémoire</button>
-</div>
-
-<div id="walletbox" style="display:none;">
-  <h3>Wallet Personnel</h3>
-  <div id="wallet-data">Chargement...</div>
-  <h4>Ajouter un revenu</h4>
-  <input type="number" id="addAmount" placeholder="Montant" step="0.01">
-  <select id="addCurrency"><option>EUR</option><option>USDC</option><option>DAI</option><option>USDT</option></select>
-  <input type="text" id="addNote" placeholder="Note (optionnel)">
-  <button onclick="addToWallet()">Ajouter</button>
-  <h4>Convertir</h4>
-  <input type="number" id="convAmount" placeholder="Montant" step="0.01">
-  <select id="convFrom"><option>USDC</option><option>DAI</option><option>USDT</option><option>EUR</option></select>
-  <select id="convTo"><option>EUR</option><option>USDC</option><option>DAI</option><option>USDT</option></select>
-  <button onclick="convertWallet()">Convertir</button>
 </div>
 
 <script>
-  const PASSWORD = prompt("Mot de passe Neo ?");
-  function headers() { return {'Content-Type':'application/json','X-Neo-Password':PASSWORD}; }
+// Le Commandant saisit son mot de passe une fois
+const PASSWORD = prompt("Mot de passe Neo ?");
 
-  async function sendChat() {
-    const prompt = document.getElementById('prompt').value;
-    document.getElementById('reply').innerText = "Neo réfléchit...";
-    const res = await fetch('/chat', {method:'POST', headers:headers(), body:JSON.stringify({message:prompt})});
-    const data = await res.json();
-    // Si le mode est "site" ou "passive_income", essayer d'extraire le HTML
-    const replyText = data.reply || "Erreur";
-    document.getElementById('reply').innerText = replyText;
-    const match = replyText.match(/```html\s*([\s\S]*?)```/);
-    const iframe = document.getElementById('preview-frame');
-    if (match) {
-      iframe.srcdoc = match[1];
-      iframe.style.display = 'block';
-    } else {
-      iframe.style.display = 'none';
-    }
-  }
+function headers() {
+  return {
+    'Content-Type': 'application/json',
+    'X-Neo-Password': PASSWORD
+  };
+}
 
-  async function showWallet() {
-    document.getElementById('walletbox').style.display = 'block';
-    const res = await fetch('/wallet', {headers:headers()});
-    const data = await res.json();
-    document.getElementById('wallet-data').innerHTML = JSON.stringify(data, null, 2);
-  }
+async function sendChat() {
+  const prompt = document.getElementById('prompt').value;
+  if (!prompt) return;
+  document.getElementById('reply-box').innerText = "Neo réfléchit...";
 
-  async function addToWallet() {
-    const amount = document.getElementById('addAmount').value;
-    const currency = document.getElementById('addCurrency').value;
-    const note = document.getElementById('addNote').value;
-    const res = await fetch('/wallet/add', {method:'POST', headers:headers(), body:JSON.stringify({amount:parseFloat(amount), currency, note})});
-    const data = await res.json();
-    alert(JSON.stringify(data));
-    showWallet();
-  }
+  const res = await fetch('/chat', {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ message: prompt })
+  });
 
-  async function convertWallet() {
-    const from = document.getElementById('convFrom').value;
-    const to = document.getElementById('convTo').value;
-    const amount = document.getElementById('convAmount').value;
-    const res = await fetch('/wallet/convert', {method:'POST', headers:headers(), body:JSON.stringify({from_currency:from, to_currency:to, amount:parseFloat(amount)})});
-    const data = await res.json();
-    alert(JSON.stringify(data));
-    showWallet();
-  }
+  const data = await res.json();
+  const reply = data.reply || "Erreur inconnue";
 
-  async function scanOpps() {
-    const res = await fetch('/scan', {method:'POST', headers:headers()});
-    const data = await res.json();
-    document.getElementById('reply').innerText = JSON.stringify(data, null, 2);
-  }
+  // Afficher la réponse texte
+  document.getElementById('reply-box').innerText = reply;
 
-  async function resetChat() {
-    await fetch('/reset', {method:'POST', headers:headers()});
-    document.getElementById('reply').innerText = "Mémoire effacée.";
+  // Si la réponse contient du code HTML, l'afficher dans l'iframe
+  const match = reply.match(/```html\s*([\s\S]*?)```/);
+  const iframe = document.getElementById('preview-frame');
+  if (match) {
+    iframe.srcdoc = match[1];
+    iframe.style.display = 'block';
+  } else {
+    iframe.style.display = 'none';
   }
+}
+
+async function resetMemory() {
+  await fetch('/reset', { method: 'POST', headers: headers() });
+  document.getElementById('reply-box').innerText = "Mémoire effacée.";
+}
+
+async function scanOpps() {
+  const res = await fetch('/scan', {
+    method: 'POST',
+    headers: headers()
+  });
+  const data = await res.json();
+  document.getElementById('reply-box').innerText = JSON.stringify(data, null, 2);
+}
 </script>
 </body>
 </html>
