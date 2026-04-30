@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 import time
 import re
-import requests
 
 app = FastAPI()
 
@@ -38,39 +37,6 @@ def check_rate_limit(ip: str, max_per_minute=30):
         return False
     request_counts[ip].append(now)
     return True
-
-# ===================== WALLET =====================
-WALLET_FILE = "wallet.json"
-
-def load_wallet():
-    if not os.path.exists(WALLET_FILE):
-        return {"balances": {"EUR": 0.0}, "history": []}
-    with open(WALLET_FILE, "r") as f:
-        return json.load(f)
-
-def save_wallet(data):
-    with open(WALLET_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-def get_crypto_rates():
-    """Récupère les taux EUR des principaux stablecoins via CoinGecko (gratuit)."""
-    try:
-        url = "https://api.coingecko.com/api/v3/simple/price"
-        params = {
-            "ids": "usd-coin,dai,tether",
-            "vs_currencies": "eur"
-        }
-        resp = requests.get(url, params=params, timeout=10)
-        data = resp.json()
-        rates = {
-            "USDC": data.get("usd-coin", {}).get("eur", 0.92),
-            "DAI": data.get("dai", {}).get("eur", 0.92),
-            "USDT": data.get("tether", {}).get("eur", 0.92)
-        }
-        return rates
-    except Exception:
-        # Fallback si l'API est indisponible
-        return {"USDC": 0.92, "DAI": 0.92, "USDT": 0.92}
 
 # ===================== PROMPTS SYSTEMES =====================
 SYSTEM_PROMPT_CHASSEUR = """Tu es NEO, l IA souveraine du Commandant. Tu rivalises avec les meilleures IA mondiales.
@@ -292,22 +258,6 @@ opportunities_cache = {
 class Message(BaseModel):
     message: str
 
-class WalletAdd(BaseModel):
-    amount: float
-    currency: str = "EUR"
-    note: str = ""
-
-class WalletConvert(BaseModel):
-    from_currency: str
-    to_currency: str
-    amount: float
-
-class WalletPay(BaseModel):
-    amount: float
-    currency: str = "EUR"
-    recipient: str = ""
-    note: str = ""
-
 # ===================== ROUTES =====================
 @app.post("/auth")
 async def auth(data: dict):
@@ -407,77 +357,6 @@ async def test_ai():
 async def ping():
     return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
-# ===================== WALLET =====================
-@app.get("/wallet")
-async def get_wallet(x_neo_password: str = Header(None)):
-    if x_neo_password != NEO_PASSWORD:
-        raise HTTPException(status_code=401, detail="Acces refuse")
-    wallet = load_wallet()
-    rates = get_crypto_rates()
-    # Calculer la valeur totale en EUR
-    total_eur = wallet["balances"].get("EUR", 0.0)
-    for crypto in ["USDC", "DAI", "USDT"]:
-        if crypto in wallet["balances"]:
-            total_eur += wallet["balances"][crypto] * rates.get(crypto, 0.92)
-    return {
-        "balances": wallet["balances"],
-        "total_eur": round(total_eur, 2),
-        "rates": rates,
-        "history": wallet.get("history", [])[-10:] # 10 dernières opérations
-    }
-
-@app.post("/wallet/add")
-async def wallet_add(data: WalletAdd, x_neo_password: str = Header(None)):
-    if x_neo_password != NEO_PASSWORD:
-        raise HTTPException(status_code=401, detail="Acces refuse")
-    wallet = load_wallet()
-    currency = data.currency.upper()
-    if currency not in ["EUR", "USDC", "DAI", "USDT"]:
-        raise HTTPException(status_code=400, detail="Devise non supportée (EUR, USDC, DAI, USDT)")
-    wallet["balances"][currency] = wallet["balances"].get(currency, 0.0) + data.amount
-    wallet["history"].append({
-        "type": "credit",
-        "amount": data.amount,
-        "currency": currency,
-        "note": data.note,
-        "timestamp": datetime.now().isoformat()
-    })
-    save_wallet(wallet)
-    return {"status": "ok", "balance": wallet["balances"][currency]}
-
-@app.post("/wallet/convert")
-async def wallet_convert(data: WalletConvert, x_neo_password: str = Header(None)):
-    if x_neo_password != NEO_PASSWORD:
-        raise HTTPException(status_code=401, detail="Acces refuse")
-    wallet = load_wallet()
-    from_cur = data.from_currency.upper()
-    to_cur = data.to_currency.upper()
-    if from_cur == to_cur:
-        raise HTTPException(status_code=400, detail="Conversion identique")
-    if from_cur not in ["EUR", "USDC", "DAI", "USDT"] or to_cur not in ["EUR", "USDC", "DAI", "USDT"]:
-        raise HTTPException(status_code=400, detail="Devise non supportée")
-
-    balance_from = wallet["balances"].get(from_cur, 0.0)
-    if balance_from < data.amount:
-        raise HTTPException(status_code=400, detail="Solde insuffisant")
-
-    rates = get_crypto_rates()
-    # Conversion vers EUR puis vers devise cible
-    if from_cur == "EUR":
-        amount_eur = data.amount
-    else:
-        amount_eur = data.amount * rates.get(from_cur, 0.92)
-
-    if to_cur == "EUR":
-        converted = amount_eur
-    else:
-        converted = amount_eur / rates.get(to_cur, 0.92)
-
-    wallet["balances"][from_cur] -= data.amount
-    wallet["balances"][to_cur] = wallet["balances"].get(to_cur, 0.0) + converted
-
-    # Correction de la f-string
-    rate_info = f"1 {from_cur} = {round(amount_eur / data.amount, 4)} EUR" if from_cur != "EUR" else "1 EUR = 1 EUR"
-    wallet["history"].append({
-        "type": "conversion",
-        "from": f"
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return open("templates/index.html").read()
