@@ -462,7 +462,7 @@ async def wallet_convert(data: WalletConvert, x_neo_password: str = Header(None)
         raise HTTPException(status_code=400, detail="Solde insuffisant")
 
     rates = get_crypto_rates()
-    # Conversion vers EUR puis vers la devise cible
+    # Conversion vers EUR puis vers devise cible
     if from_cur == "EUR":
         amount_eur = data.amount
     else:
@@ -475,8 +475,9 @@ async def wallet_convert(data: WalletConvert, x_neo_password: str = Header(None)
 
     wallet["balances"][from_cur] -= data.amount
     wallet["balances"][to_cur] = wallet["balances"].get(to_cur, 0.0) + converted
+
+    # Correction de la f-string
+    rate_info = f"1 {from_cur} = {round(amount_eur / data.amount, 4)} EUR" if from_cur != "EUR" else "1 EUR = 1 EUR"
     wallet["history"].append({
         "type": "conversion",
-        "from": f"{data.amount} {from_cur}",
-        "to": f"{round(converted, 6)} {to_cur}",
-        "rate_used": f"1 {from_cur} = {round(amount_eur/data.amount if 
+        "from": f"
