@@ -11,6 +11,7 @@
     #reply-box { width:100%; max-width:700px; background:#1a1a1a; padding:15px; margin-top:20px; border-radius:8px; white-space:pre-wrap; }
     .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
     iframe { width:100%; max-width:700px; height:500px; border:2px solid #333; margin-top:10px; background:white; display:none; }
+    #voice-btn { background:#f0ad4e; } /* bouton orangé pour la voix */
   </style>
 </head>
 <body>
@@ -19,6 +20,7 @@
 <button onclick="sendChat()">Envoyer</button>
 
 <div id="reply-box">Appuyez sur Envoyer pour parler à Neo.</div>
+<button id="voice-btn" onclick="speakReply()" style="display:none;">🔊 Lire la réponse</button>
 <iframe id="preview-frame"></iframe>
 
 <div class="row">
@@ -27,7 +29,6 @@
 </div>
 
 <script>
-// Le Commandant saisit son mot de passe une fois
 const PASSWORD = prompt("Mot de passe Neo ?");
 
 function headers() {
@@ -41,6 +42,7 @@ async function sendChat() {
   const prompt = document.getElementById('prompt').value;
   if (!prompt) return;
   document.getElementById('reply-box').innerText = "Neo réfléchit...";
+  document.getElementById('voice-btn').style.display = 'none';
 
   const res = await fetch('/chat', {
     method: 'POST',
@@ -51,10 +53,11 @@ async function sendChat() {
   const data = await res.json();
   const reply = data.reply || "Erreur inconnue";
 
-  // Afficher la réponse texte
+  // Affichage du texte
   document.getElementById('reply-box').innerText = reply;
+  document.getElementById('voice-btn').style.display = 'inline-block';
 
-  // Si la réponse contient du code HTML, l'afficher dans l'iframe
+  // Aperçu du site si code HTML présent
   const match = reply.match(/```html\s*([\s\S]*?)```/);
   const iframe = document.getElementById('preview-frame');
   if (match) {
@@ -65,9 +68,25 @@ async function sendChat() {
   }
 }
 
+// Synthèse vocale
+function speakReply() {
+  const text = document.getElementById('reply-box').innerText;
+  if (!text || text === "Neo réfléchit...") return;
+  
+  // Supprimer les blocs de code pour ne pas les lire
+  const cleanText = text.replace(/```[\s\S]*?```/g, '(code non lu)');
+  
+  const utterance = new SpeechSynthesisUtterance(cleanText);
+  utterance.lang = 'fr-FR';
+  utterance.rate = 1.1; // un peu plus rapide
+  window.speechSynthesis.cancel(); // stoppe toute lecture en cours
+  window.speechSynthesis.speak(utterance);
+}
+
 async function resetMemory() {
   await fetch('/reset', { method: 'POST', headers: headers() });
   document.getElementById('reply-box').innerText = "Mémoire effacée.";
+  document.getElementById('voice-btn').style.display = 'none';
 }
 
 async function scanOpps() {
@@ -76,7 +95,9 @@ async function scanOpps() {
     headers: headers()
   });
   const data = await res.json();
-  document.getElementById('reply-box').innerText = JSON.stringify(data, null, 2);
+  const text = JSON.stringify(data, null, 2);
+  document.getElementById('reply-box').innerText = text;
+  document.getElementById('voice-btn').style.display = 'inline-block';
 }
 </script>
 </body>
