@@ -5,11 +5,9 @@ from groq import Groq
 from tavily import TavilyClient
 from cerebras.cloud.sdk import Cerebras
 import os
-import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict
 import time
-import re
 
 app = FastAPI()
 
@@ -28,7 +26,6 @@ def verify_password(password: str = Header(None, alias="X-Neo-Password")):
         raise HTTPException(status_code=401, detail="Mot de passe incorrect")
     return True
 
-# Rate limiting
 request_counts = defaultdict(list)
 def check_rate_limit(ip: str, max_per_minute=30):
     now = time.time()
@@ -39,6 +36,7 @@ def check_rate_limit(ip: str, max_per_minute=30):
     return True
 
 # ===================== PROMPTS SYSTEMES =====================
+
 SYSTEM_PROMPT_CHASSEUR = """Tu es NEO, l IA souveraine du Commandant. Tu rivalises avec les meilleures IA mondiales.
 
 PERSONNALITE :
@@ -149,7 +147,66 @@ LIVRABLE :
 
 TU DOIS TOUT FAIRE TOUT SEUL À PARTIR DE LA DESCRIPTION. Le Commandant n'a qu'à valider."""
 
-# ===================== DETECTION MODE =====================
+# ========== NOUVEAUX PROMPTS TRADING & PMU ==========
+
+SYSTEM_PROMPT_TRADING = """Tu es NEO, expert en trading et analyse des marchés financiers. Tu combines les connaissances du net et une rigueur mathématique.
+
+DISCIPLINES COUVERTES :
+- Trading crypto, forex, actions, indices, matières premières
+- Analyse technique (figures chartistes, indicateurs : RSI, MACD, bandes de Bollinger, Ichimoku…)
+- Analyse fondamentale (valorisation, actualités économiques, sentiment de marché)
+- Gestion du risque, money management
+- Psychologie du trader
+
+TON PROCESSUS :
+1. Si la question nécessite des données actuelles (cours, news), tu lances une recherche web via Tavily pour obtenir les dernières informations.
+2. Tu analyses les résultats et les combines avec ton expertise.
+3. Tu fournis une réponse structurée :
+   - Résumé de l’analyse
+   - Niveaux clés (supports/résistances)
+   - Scénarios possibles (hausse, baisse, range) avec probabilités estimées
+   - Conseils de gestion du risque (taille de position, stop loss)
+   - Sources utilisées (URLs)
+
+RÈGLES STRICTES :
+- Tu n’es PAS un conseiller financier. Tu rappelles que tes analyses sont informatives et ne constituent pas un conseil en investissement.
+- Tu ne prédis jamais le futur avec certitude, tu donnes des probabilités.
+- Tu refuses les demandes illégales (ex : manipulation de marché).
+- Tu mets en garde contre les risques de perte en capital.
+- Si on te demande un signal, tu fournis une analyse complète plutôt qu’un simple “acheter/vendre”.
+
+TON VOCABULAIRE : utilise les termes techniques appropriés (support, résistance, trend, pullback, RSI, divergence, etc.). Explique-les si le Commandant semble débutant."""
+
+SYSTEM_PROMPT_PMU = """Tu es NEO, expert en turf et pronostics hippiques. Tu maîtrises l’art du pari PMU en t’appuyant sur des données précises.
+
+CONNAISSANCES :
+- Disciplines : trot, galop, obstacles
+- Types de paris : simple, couplé, trio, quarté+, quinté+, multi, 2sur4, report
+- Analyse des performances : musique d’un cheval, forme, entourage, terrain, distance, poids, ratio gains/courses
+- Méthodes de pronostics : Méthode Clément, Méthode des écarts, analyse statistique
+- Lecture des rapports PMU, canaux d’information (Geny, Paris‑Turf, sites officiels)
+
+TON PROCESSUS :
+1. Pour toute question nécessitant des données récentes (partants d’une course, rapports, conditions de piste), tu actives une recherche web avec Tavily.
+2. Tu analyses les résultats de la recherche en les croisant avec tes connaissances.
+3. Tu fournis une réponse structurée :
+   - Présentation de la course (hippodrome, distance, type, météo)
+   - Synthèse des forces en présence (cheval à l’honneur, bases, outsiders intéressants)
+   - Pronostic(s) proposé(s) avec justification
+   - Options de jeu (en simple, couplé, etc.) et estimation du rapport probable
+   - Rappel de prudence : le jeu comporte des risques, ne jouez que ce que vous pouvez perdre.
+
+RÈGLES STRICTES :
+- Tu rappelles que le jeu d’argent comporte des risques, tu encourages le jeu responsable.
+- Tu ne fournis jamais de conseils de jeu excessifs ou de martingales ruineuses.
+- Tu utilises les données réelles des courses (noms des chevaux, drivers, cotes) quand elles sont disponibles via recherche web.
+- Si les informations ne sont pas disponibles, tu l’indiques clairement.
+- Tu ne t’engages pas sur un résultat garanti, tu donnes une tendance basée sur l’analyse.
+
+TON VOCABULAIRE : utilise le jargon hippique approprié (driver, entourage, corde, déferrage, engagement, etc.). Explique brièvement les termes si nécessaire."""
+
+# ===================== DETECTION MODE (mise à jour) =====================
+
 BUSINESS_KEYWORDS = [
     "holding", "dropshipping", "e-commerce", "fiscalité", "conseil",
     "stratégie", "business plan", "sas", "sarl", "auto-entrepreneur",
@@ -167,6 +224,24 @@ PASSIVE_KEYWORDS = [
     "générer un revenu sans effort"
 ]
 
+TRADING_KEYWORDS = [
+    "trading", "trader", "bourse", "crypto", "bitcoin", "ethereum",
+    "action", "indice", "forex", "matière première", "analyse technique",
+    "chartiste", "rsi", "macd", "bandes de bollinger", "ichimoku",
+    "support résistance", "figure chartiste", "pullback", "stop loss",
+    "take profit", "effet de levier", "swap", "spread",
+    "cac40", "dow jones", "nasdaq", "s&p500", "dax",
+    "binance", "coinbase", "kraken", "metatrader", "signal trading"
+]
+
+PMU_KEYWORDS = [
+    "pmu", "turf", "hippique", "cheval", "course hippique", "tiercé",
+    "quinté", "couplé", "trio", "quarté", "simple gagnant", "simple placé",
+    "pronostic pmu", "méthode pmu", "geny", "paris-turf", "canalturf",
+    "driver", "entraineur", "trot", "galop", "obstacle",
+    "réunion pmu", "prix d'amérique", "hippodrome"
+]
+
 WEB_KEYWORDS = [
     "actuel", "aujourd hui", "demain", "hier", "cours", "prix", "valeur",
     "news", "actualite", "info", "actu", "recent", "dernier", "maintenant",
@@ -177,15 +252,24 @@ WEB_KEYWORDS = [
     "nft", "opensea", "mint", "liquidation", "enchere",
     "bug bounty", "hackerone", "bugcrowd", "immunefi", "freelance",
     "concours", "prime", "kaggle", "gitcoin", "subvention", "grant",
-    "philantrope", "philanthrope", "donation"
+    "philantrope", "philanthrope", "donation",
+    # Trading / PMU ajoutés dans WEB_KEYWORDS pour la recherche web
+    "tiercé", "quinté", "pmu", "turf", "hippique", "cheval",
+    "cac40", "dow jones", "nasdaq"
 ]
 
 def needs_web_search(message):
     msg_lower = message.lower()
-    return any(keyword in msg_lower for keyword in WEB_KEYWORDS)
+    return any(kw in msg_lower for kw in WEB_KEYWORDS)
 
 def detect_mode(message):
     msg_lower = message.lower()
+    for kw in TRADING_KEYWORDS:
+        if kw in msg_lower:
+            return "trading"
+    for kw in PMU_KEYWORDS:
+        if kw in msg_lower:
+            return "pmu"
     for kw in SITE_KEYWORDS:
         if kw in msg_lower:
             return "site"
@@ -208,31 +292,29 @@ def rechercher_web(query, deep=True):
             max_results=5 if deep else 3,
             include_answer=True
         )
-        results_text = "Resultats : " + query + "\n\n"
+        text = "Resultats : " + query + "\n\n"
         if response.get("answer"):
-            results_text += "Resume : " + response["answer"] + "\n\n"
-        for i, result in enumerate(response.get("results", []), 1):
-            results_text += "\n[" + str(i) + "] " + result.get("title", "") + "\n"
-            results_text += "URL : " + result.get("url", "") + "\n"
-            results_text += result.get("content", "")[:300] + "...\n"
-        return results_text
+            text += "Resume : " + response["answer"] + "\n\n"
+        for i, r in enumerate(response.get("results", []), 1):
+            text += f"\n[{i}] {r.get('title','')}\nURL : {r.get('url','')}\n{r.get('content','')[:300]}...\n"
+        return text
     except Exception as e:
         return "Erreur Tavily : " + str(e)[:100]
 
 def call_ai(messages):
     try:
-        response = groq_client.chat.completions.create(
+        resp = groq_client.chat.completions.create(
             model=GROQ_MODEL, messages=messages, max_tokens=4096, temperature=0.7
         )
-        return response.choices[0].message.content, "groq"
-    except Exception:
+        return resp.choices[0].message.content, "groq"
+    except:
         pass
     try:
-        response = cerebras_client.chat.completions.create(
+        resp = cerebras_client.chat.completions.create(
             model=CEREBRAS_MODEL, messages=messages, max_tokens=4096, temperature=0.7
         )
-        return response.choices[0].message.content, "cerebras"
-    except Exception:
+        return resp.choices[0].message.content, "cerebras"
+    except:
         raise Exception("Les 2 IA ont planté")
 
 # ===================== MEMOIRE & SCAN =====================
@@ -246,12 +328,15 @@ HUNTING_SOURCES = {
     "subventions": ["Gitcoin grants applications ouvertes", "Ethereum Foundation grants"],
     "biens_dormants": ["ciclade comptes dormants reclamation france"],
     "business_ideas": ["niche dropshipping rentable 2025", "affiliation programme rémunérateur",
-                        "produit tendance à vendre en ligne"]
+                        "produit tendance à vendre en ligne"],
+    "trading_signals": ["meilleurs signaux trading du jour", "analyse technique CAC40 cette semaine", "crypto trading setup aujourd'hui"],
+    "pmu_pronostics": ["pronostics PMU quinté du jour", "tiercé gagnant analyse", "cheval à suivre aujourd'hui hippodrome"]
 }
 
 opportunities_cache = {
     "airdrops": [], "bug_bounties": [], "concours": [],
     "subventions": [], "biens_dormants": [], "business_ideas": [],
+    "trading_signals": [], "pmu_pronostics": [],
     "last_update": None
 }
 
@@ -281,18 +366,22 @@ async def chat(msg: Message, request: Request, x_neo_password: str = Header(None
 
         mode = detect_mode(msg.message)
         if mode == "site":
-            system_prompt = SYSTEM_PROMPT_SITE
+            system = SYSTEM_PROMPT_SITE
         elif mode == "business":
-            system_prompt = SYSTEM_PROMPT_BUSINESS
+            system = SYSTEM_PROMPT_BUSINESS
         elif mode == "passive_income":
-            system_prompt = SYSTEM_PROMPT_PASSIVE
+            system = SYSTEM_PROMPT_PASSIVE
+        elif mode == "trading":
+            system = SYSTEM_PROMPT_TRADING
+        elif mode == "pmu":
+            system = SYSTEM_PROMPT_PMU
         else:
-            system_prompt = SYSTEM_PROMPT_CHASSEUR
+            system = SYSTEM_PROMPT_CHASSEUR
 
-        messages = [{"role": "system", "content": system_prompt}] + conversation_history
-        if mode in ("chasseur", "business", "passive_income") and needs_web_search(msg.message):
-            search_result = rechercher_web(msg.message, deep=True)
-            messages.append({"role": "system", "content": "Recherche web :\n\n" + search_result})
+        messages = [{"role": "system", "content": system}] + conversation_history
+        if mode in ("chasseur", "business", "passive_income", "trading", "pmu") and needs_web_search(msg.message):
+            search_res = rechercher_web(msg.message, deep=True)
+            messages.append({"role": "system", "content": "Recherche web :\n\n" + search_res})
 
         reply, provider = call_ai(messages)
         conversation_history.append({"role": "assistant", "content": reply})
@@ -309,8 +398,8 @@ async def scan_opportunities(x_neo_password: str = Header(None)):
     for category, queries in HUNTING_SOURCES.items():
         for query in queries[:1]:
             try:
-                response = tavily.search(query=query, search_depth="basic", max_results=3, include_answer=True)
-                for r in response.get("results", []):
+                resp = tavily.search(query=query, search_depth="basic", max_results=3, include_answer=True)
+                for r in resp.get("results", []):
                     results[category].append({
                         "title": r.get("title", ""),
                         "url": r.get("url", ""),
@@ -318,7 +407,7 @@ async def scan_opportunities(x_neo_password: str = Header(None)):
                         "category": category,
                         "found_at": datetime.now().isoformat()
                     })
-            except Exception:
+            except:
                 pass
     results["last_update"] = datetime.now().isoformat()
     opportunities_cache = results
