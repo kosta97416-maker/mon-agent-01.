@@ -26,6 +26,10 @@
     .setting small { color:#aaa; }
     hr { border-color:var(--border); }
     .special-btn { background:#e67e22; }
+    .proctor-btn { background:#9b59b6; }
+    .wealth-btn { background:#27ae60; }
+    .coding-btn { background:#3498db; }
+    .ai-btn { background:#f1c40f; color:#111; }
   </style>
 </head>
 <body class="dark">
@@ -43,13 +47,21 @@
     <button onclick="scanOpps()">🔍 Scan</button>
     <button onclick="exportPDF()">🖨️ PDF</button>
     <button onclick="copySiteCode()" id="copy-btn" style="display:none;">📋 Copier le site</button>
-    <button class="special-btn" onclick="setPrompt('Analyse technique du jour crypto, donne des niveaux et scénarios')">📈 Analyse Trading</button>
-    <button class="special-btn" onclick="setPrompt('Pronostic PMU du jour, avec les chevaux à suivre')">🐎 Pronostic PMU</button>
+    <button class="special-btn" onclick="setPrompt('Analyse technique du jour crypto, donne des niveaux et scénarios')">📈 Trading</button>
+    <button class="special-btn" onclick="setPrompt('Pronostic PMU du jour, avec les chevaux à suivre')">🐎 PMU</button>
     <button onclick="scanTrading()">🔎 Scan Trading</button>
     <button onclick="scanPMU()">🔎 Scan PMU</button>
+    <button class="proctor-btn" onclick="setPrompt('Enseigne-moi la mentalité de l\'argent selon Bob Proctor')">💎 Proctor</button>
+    <button onclick="scanProctor()">🔎 Scan Proctor</button>
+    <button class="wealth-btn" onclick="setPrompt('Comment optimiser mes impôts et m\'enrichir légalement ?')">💰 Optimisation</button>
+    <button onclick="scanWealth()">🔎 Scan Optimisation</button>
+    <button class="coding-btn" onclick="setPrompt('Écris un script Python pour analyser un fichier CSV')">🖥️ Codage</button>
+    <button class="ai-btn" onclick="setPrompt('Compare DeepSeek et GPT-4o')">🤖 IA</button>
+    <button onclick="scanCoding()">🔎 Scan Codage</button>
+    <button onclick="scanAI()">🔎 Scan IA</button>
   </div>
 
-  <!-- Panneau des clés -->
+  <!-- Panneau des clés (inchangé) -->
   <div id="settings-panel">
     <h3>⚙️ Paramètres des widgets</h3>
     <p style="font-size:0.9em;">Ajoutez ici vos clés API pour les widgets. Elles sont stockées uniquement dans votre navigateur.</p>
@@ -118,13 +130,11 @@ function saveSettings() {
 function loadWidgets() {
   const container = document.getElementById('widgets-container');
   container.innerHTML = '';
-  // Widget Crypto
   const cryptoDiv = document.createElement('div');
   cryptoDiv.className = 'widget';
   cryptoDiv.innerHTML = '<strong>₿ Bitcoin</strong><br><span id="crypto-price">Chargement…</span>';
   container.appendChild(cryptoDiv);
   loadCrypto();
-  // Widget Météo si clé présente
   const weatherKey = localStorage.getItem('weather_key');
   if (weatherKey) {
     const weatherDiv = document.createElement('div');
@@ -133,7 +143,6 @@ function loadWidgets() {
     container.appendChild(weatherDiv);
     loadWeather(weatherKey);
   }
-  // Widget News si clé présente
   const newsKey = localStorage.getItem('news_key');
   if (newsKey) {
     const newsDiv = document.createElement('div');
@@ -278,7 +287,6 @@ async function scanTrading() {
     "Signaux trading :\n" + JSON.stringify(signals, null, 2) :
     "Aucun signal trading trouvé pour le moment.";
 }
-
 async function scanPMU() {
   const res = await fetch('/scan', { method:'POST', headers:headers() });
   const data = await res.json();
@@ -286,6 +294,38 @@ async function scanPMU() {
   document.getElementById('reply-box').innerText = pronos.length ?
     "Pronostics PMU :\n" + JSON.stringify(pronos, null, 2) :
     "Aucun pronostic PMU trouvé pour le moment.";
+}
+async function scanProctor() {
+  const res = await fetch('/scan', { method:'POST', headers:headers() });
+  const data = await res.json();
+  const teachings = data.proctor_teachings || [];
+  document.getElementById('reply-box').innerText = teachings.length ?
+    "Enseignements Proctor :\n" + JSON.stringify(teachings, null, 2) :
+    "Aucun enseignement trouvé pour le moment.";
+}
+async function scanWealth() {
+  const res = await fetch('/scan', { method:'POST', headers:headers() });
+  const data = await res.json();
+  const tips = data.wealth_tips || [];
+  document.getElementById('reply-box').innerText = tips.length ?
+    "Astuces d'optimisation :\n" + JSON.stringify(tips, null, 2) :
+    "Aucune astuce trouvée pour le moment.";
+}
+async function scanCoding() {
+  const res = await fetch('/scan', { method:'POST', headers:headers() });
+  const data = await res.json();
+  const news = data.coding_news || [];
+  document.getElementById('reply-box').innerText = news.length ?
+    "Actualités code :\n" + JSON.stringify(news, null, 2) :
+    "Aucune actualité code trouvée.";
+}
+async function scanAI() {
+  const res = await fetch('/scan', { method:'POST', headers:headers() });
+  const data = await res.json();
+  const updates = data.ai_updates || [];
+  document.getElementById('reply-box').innerText = updates.length ?
+    "Dernières infos IA :\n" + JSON.stringify(updates, null, 2) :
+    "Aucune info IA trouvée.";
 }
 
 // ---------- RESET / SCAN GENERAL ----------
