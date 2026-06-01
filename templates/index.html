@@ -30,6 +30,7 @@
     .wealth-btn { background:#27ae60; }
     .coding-btn { background:#3498db; }
     .ai-btn { background:#f1c40f; color:#111; }
+    .hidden-btn { background:#e74c3c; }
   </style>
 </head>
 <body class="dark">
@@ -55,13 +56,14 @@
     <button onclick="scanProctor()">🔎 Scan Proctor</button>
     <button class="wealth-btn" onclick="setPrompt('Comment optimiser mes impôts et m\'enrichir légalement ?')">💰 Optimisation</button>
     <button onclick="scanWealth()">🔎 Scan Optimisation</button>
+    <button class="hidden-btn" onclick="scanHiddenBusinesses()">🔍 Business Cachés</button>
     <button class="coding-btn" onclick="setPrompt('Écris un script Python pour analyser un fichier CSV')">🖥️ Codage</button>
     <button class="ai-btn" onclick="setPrompt('Compare DeepSeek et GPT-4o')">🤖 IA</button>
     <button onclick="scanCoding()">🔎 Scan Codage</button>
     <button onclick="scanAI()">🔎 Scan IA</button>
   </div>
 
-  <!-- Panneau des clés (inchangé) -->
+  <!-- Panneau des clés -->
   <div id="settings-panel">
     <h3>⚙️ Paramètres des widgets</h3>
     <p style="font-size:0.9em;">Ajoutez ici vos clés API pour les widgets. Elles sont stockées uniquement dans votre navigateur.</p>
@@ -148,7 +150,7 @@ function loadWidgets() {
     const newsDiv = document.createElement('div');
     newsDiv.className = 'widget';
     newsDiv.innerHTML = '<strong>📰 Actualités</strong><ul id="news-list" style="padding-left:20px; margin:5px 0;"></ul>';
-    container.appendChild(newsDiv);
+    container.appendChild(newsDiv);   // <-- correction (newsDiv)
     loadNews(newsKey);
   }
 }
@@ -249,7 +251,7 @@ function saveToHistory(q, r) {
 }
 function displayHistory() {
   const hist = JSON.parse(localStorage.getItem('neo_history') || '[]');
-  document.getElementById('history-list').innerHTML = hist.map((h,i) => 
+  document.getElementById('history-list').innerHTML = hist.map((h,i) =>
     `<div class="history-item" onclick="loadHistory(${i})">${h.q.substring(0,50)}...</div>`
   ).join('');
 }
@@ -283,10 +285,11 @@ async function scanTrading() {
   const res = await fetch('/scan', { method:'POST', headers:headers() });
   const data = await res.json();
   const signals = data.trading_signals || [];
-  document.getElementById('reply-box').innerText = signals.length ? 
+  document.getElementById('reply-box').innerText = signals.length ?
     "Signaux trading :\n" + JSON.stringify(signals, null, 2) :
     "Aucun signal trading trouvé pour le moment.";
 }
+
 async function scanPMU() {
   const res = await fetch('/scan', { method:'POST', headers:headers() });
   const data = await res.json();
@@ -295,6 +298,7 @@ async function scanPMU() {
     "Pronostics PMU :\n" + JSON.stringify(pronos, null, 2) :
     "Aucun pronostic PMU trouvé pour le moment.";
 }
+
 async function scanProctor() {
   const res = await fetch('/scan', { method:'POST', headers:headers() });
   const data = await res.json();
@@ -303,6 +307,7 @@ async function scanProctor() {
     "Enseignements Proctor :\n" + JSON.stringify(teachings, null, 2) :
     "Aucun enseignement trouvé pour le moment.";
 }
+
 async function scanWealth() {
   const res = await fetch('/scan', { method:'POST', headers:headers() });
   const data = await res.json();
@@ -311,14 +316,25 @@ async function scanWealth() {
     "Astuces d'optimisation :\n" + JSON.stringify(tips, null, 2) :
     "Aucune astuce trouvée pour le moment.";
 }
+
+async function scanHiddenBusinesses() {
+  const res = await fetch('/scan/hidden-businesses', { method:'POST', headers:headers() });
+  const data = await res.json();
+  document.getElementById('reply-box').innerText = 
+    data.hidden_businesses && data.hidden_businesses.length ?
+    "Business légaux méconnus :\n" + JSON.stringify(data.hidden_businesses, null, 2) :
+    "Aucune trouvaille pour le moment.";
+}
+
 async function scanCoding() {
   const res = await fetch('/scan', { method:'POST', headers:headers() });
   const data = await res.json();
-  const news = data.coding_news || [];
-  document.getElementById('reply-box').innerText = news.length ?
-    "Actualités code :\n" + JSON.stringify(news, null, 2) :
+  const codingNews = data.coding_news || [];   // <-- correction (variable nommée codingNews)
+  document.getElementById('reply-box').innerText = codingNews.length ?
+    "Actualités code :\n" + JSON.stringify(codingNews, null, 2) :
     "Aucune actualité code trouvée.";
 }
+
 async function scanAI() {
   const res = await fetch('/scan', { method:'POST', headers:headers() });
   const data = await res.json();
